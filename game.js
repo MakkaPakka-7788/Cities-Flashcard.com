@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8fc8eb);
+scene.background = new THREE.Color(0x9bcfee);
 
 const camera = new THREE.PerspectiveCamera(
     55,
@@ -11,7 +11,7 @@ const camera = new THREE.PerspectiveCamera(
     2000
 );
 
-camera.position.set(80, 90, 80);
+camera.position.set(70, 80, 70);
 
 const renderer = new THREE.WebGLRenderer({
     antialias: true
@@ -26,25 +26,36 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.getElementById("game").appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.minDistance = 20;
-controls.maxDistance = 260;
+controls.minDistance = 18;
+controls.maxDistance = 230;
 controls.maxPolarAngle = Math.PI * 0.47;
 controls.target.set(0, 0, 0);
 
-const ambient = new THREE.HemisphereLight(0xdff5ff, 0x52634a, 2.1);
-scene.add(ambient);
+const skyLight = new THREE.HemisphereLight(
+    0xdff6ff,
+    0x4d6447,
+    2
+);
 
-const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-sun.position.set(80, 140, 60);
+scene.add(skyLight);
+
+const sun = new THREE.DirectionalLight(
+    0xffffff,
+    2.3
+);
+
+sun.position.set(70, 130, 70);
 sun.castShadow = true;
 sun.shadow.mapSize.width = 2048;
 sun.shadow.mapSize.height = 2048;
-sun.shadow.camera.left = -180;
-sun.shadow.camera.right = 180;
-sun.shadow.camera.top = 180;
-sun.shadow.camera.bottom = -180;
+sun.shadow.camera.left = -160;
+sun.shadow.camera.right = 160;
+sun.shadow.camera.top = 160;
+sun.shadow.camera.bottom = -160;
+
 scene.add(sun);
 
 const CITY_SIZE = 80;
@@ -55,301 +66,469 @@ const roads = new Map();
 const buildings = new Map();
 const effects = [];
 const trees = [];
-const smokeParticles = [];
-const constructionObjects = [];
+const smoke = [];
+const construction = [];
+const factories = [];
 
 let selectedTool = null;
 let dragging = false;
-let lastBuildTile = null;
-let hoveredTile = null;
-
+let lastTile = null;
 let money = 50000;
+
 let population = 0;
 let jobs = 0;
 let happiness = 70;
-let traffic = 0;
 let pollution = 0;
+let traffic = 0;
+
+let level = 1;
+let xp = 0;
 
 const services = {
     electricity: {
         supply: 0,
         demand: 0
     },
+
     water: {
         supply: 0,
         demand: 0
     },
+
     waste: {
         supply: 0,
         demand: 0
     },
-    health: {
-        coverage: 0
+
+    health: 0,
+    fire: 0,
+    police: 0,
+    education: 0
+};
+
+const levelData = {
+    1: {
+        xp: 0,
+        unlock: [
+            "house",
+            "townhouse",
+            "shop",
+            "basicFactory",
+            "smallPark",
+            "powerPlant",
+            "waterPlant"
+        ]
     },
-    fire: {
-        coverage: 0
+
+    2: {
+        xp: 100,
+        unlock: [
+            "restaurant",
+            "warehouse",
+            "playground",
+            "fireStation"
+        ]
     },
-    police: {
-        coverage: 0
+
+    3: {
+        xp: 300,
+        unlock: [
+            "apartment",
+            "supermarket",
+            "neighborhoodPark",
+            "policeStation",
+            "wastePlant"
+        ]
     },
-    education: {
-        coverage: 0
+
+    4: {
+        xp: 700,
+        unlock: [
+            "office",
+            "sportsPark",
+            "hospital",
+            "advancedFactory"
+        ]
+    },
+
+    5: {
+        xp: 1400,
+        unlock: [
+            "apartmentTower",
+            "botanicalGarden",
+            "modernFactory",
+            "school"
+        ]
+    },
+
+    6: {
+        xp: 2500,
+        unlock: [
+            "largeCityPark",
+            "industrialFactory"
+        ]
+    },
+
+    7: {
+        xp: 4200,
+        unlock: [
+            "manufacturingPlant"
+        ]
+    },
+
+    8: {
+        xp: 6500,
+        unlock: [
+            "megaFactory"
+        ]
+    },
+
+    9: {
+        xp: 9500,
+        unlock: []
+    },
+
+    10: {
+        xp: 14000,
+        unlock: []
     }
 };
 
-const buildingTypes = {
+const types = {
     house: {
         name: "House",
         category: "Residential",
         cost: 800,
+        xp: 20,
         width: 1,
         depth: 1,
         population: 4,
-        jobs: 0,
         electricity: 2,
         water: 2,
         waste: 1,
         happiness: 2,
-        pollution: 0,
-        color: 0xd8b58b
+        color: 0xd9b58d
     },
 
     townhouse: {
         name: "Townhouse",
         category: "Residential",
-        cost: 1400,
+        cost: 1500,
+        xp: 30,
         width: 1,
         depth: 1,
         population: 8,
-        jobs: 0,
         electricity: 3,
         water: 3,
         waste: 2,
         happiness: 2,
-        pollution: 0,
-        color: 0xc88d69
+        color: 0xc78e6c
     },
 
     apartment: {
         name: "Apartment",
         category: "Residential",
         cost: 5000,
+        xp: 80,
         width: 2,
         depth: 2,
         population: 30,
-        jobs: 0,
         electricity: 10,
         water: 9,
         waste: 7,
-        happiness: 4,
-        pollution: 0,
-        color: 0xb8c1c7
+        happiness: 3,
+        color: 0xaebbc2
     },
 
     apartmentTower: {
         name: "Apartment Tower",
         category: "Residential",
         cost: 12000,
+        xp: 150,
         width: 2,
         depth: 2,
         population: 75,
-        jobs: 0,
         electricity: 24,
         water: 20,
         waste: 16,
-        happiness: 5,
-        pollution: 0,
-        color: 0x8798a3
+        happiness: 4,
+        color: 0x8498a5
     },
 
     shop: {
         name: "Shop",
         category: "Commercial",
         cost: 2500,
+        xp: 50,
         width: 1,
         depth: 1,
-        population: 0,
         jobs: 8,
         electricity: 6,
         water: 3,
         waste: 3,
         happiness: 1,
-        pollution: 1,
-        color: 0xd6a84d
+        color: 0xd5a94e
     },
 
     restaurant: {
         name: "Restaurant",
         category: "Commercial",
         cost: 3500,
+        xp: 60,
         width: 1,
         depth: 1,
-        population: 0,
         jobs: 12,
         electricity: 7,
         water: 5,
         waste: 5,
         happiness: 2,
-        pollution: 1,
-        color: 0xb85f50
+        color: 0xb85e4e
     },
 
     supermarket: {
         name: "Supermarket",
         category: "Commercial",
         cost: 7000,
+        xp: 100,
         width: 2,
         depth: 2,
-        population: 0,
         jobs: 25,
         electricity: 14,
         water: 8,
         waste: 10,
         happiness: 2,
-        pollution: 2,
-        color: 0x668b62
+        color: 0x669064
     },
 
     office: {
         name: "Office",
         category: "Commercial",
         cost: 9000,
+        xp: 130,
         width: 2,
         depth: 2,
-        population: 0,
         jobs: 45,
         electricity: 20,
         water: 8,
         waste: 8,
         happiness: 1,
-        pollution: 1,
-        color: 0x62879c
+        color: 0x5f8498
     },
 
     warehouse: {
         name: "Warehouse",
         category: "Industrial",
         cost: 5000,
+        xp: 70,
         width: 2,
         depth: 2,
-        population: 0,
         jobs: 20,
         electricity: 10,
         water: 5,
         waste: 12,
-        happiness: -2,
         pollution: 7,
         color: 0x858585
     },
 
-    factory: {
-        name: "Factory",
-        category: "Industrial",
-        cost: 11000,
+    basicFactory: {
+        name: "Basic Factory",
+        category: "Factories",
+        cost: 9000,
+        xp: 120,
         width: 3,
         depth: 2,
-        population: 0,
-        jobs: 45,
+        jobs: 30,
+        electricity: 18,
+        water: 10,
+        waste: 15,
+        pollution: 12,
+        productionTime: 30,
+        productionCapacity: 1,
+        color: 0x777777
+    },
+
+    advancedFactory: {
+        name: "Advanced Factory",
+        category: "Factories",
+        cost: 16000,
+        xp: 200,
+        width: 3,
+        depth: 2,
+        jobs: 50,
         electricity: 25,
         water: 15,
-        waste: 20,
-        happiness: -4,
-        pollution: 15,
-        color: 0x707070
+        waste: 18,
+        pollution: 10,
+        productionTime: 20,
+        productionCapacity: 2,
+        color: 0x657c8a
     },
 
-    manufacturing: {
-        name: "Manufacturing Plant",
-        category: "Industrial",
-        cost: 18000,
+    industrialFactory: {
+        name: "Industrial Factory",
+        category: "Factories",
+        cost: 26000,
+        xp: 300,
         width: 3,
         depth: 3,
-        population: 0,
-        jobs: 75,
-        electricity: 40,
-        water: 25,
+        jobs: 80,
+        electricity: 38,
+        water: 24,
         waste: 30,
-        happiness: -5,
-        pollution: 25,
-        color: 0x626262
+        pollution: 20,
+        productionTime: 15,
+        productionCapacity: 3,
+        color: 0x656565
     },
 
-    playground: {
-        name: "Playground",
-        category: "Park",
+    modernFactory: {
+        name: "Modern Factory",
+        category: "Factories",
+        cost: 35000,
+        xp: 400,
+        width: 3,
+        depth: 3,
+        jobs: 100,
+        electricity: 42,
+        water: 25,
+        waste: 25,
+        pollution: 12,
+        productionTime: 10,
+        productionCapacity: 4,
+        color: 0x507b8c
+    },
+
+    manufacturingPlant: {
+        name: "Manufacturing Plant",
+        category: "Factories",
+        cost: 50000,
+        xp: 600,
+        width: 4,
+        depth: 3,
+        jobs: 140,
+        electricity: 60,
+        water: 40,
+        waste: 45,
+        pollution: 25,
+        productionTime: 8,
+        productionCapacity: 5,
+        color: 0x575757
+    },
+
+    megaFactory: {
+        name: "Mega Factory",
+        category: "Factories",
+        cost: 85000,
+        xp: 1000,
+        width: 4,
+        depth: 4,
+        jobs: 220,
+        electricity: 90,
+        water: 55,
+        waste: 60,
+        pollution: 35,
+        productionTime: 5,
+        productionCapacity: 8,
+        color: 0x465a63
+    },
+
+    smallPark: {
+        name: "Small Park",
+        category: "Parks",
         cost: 1800,
+        xp: 35,
         width: 1,
         depth: 1,
         radius: 2,
         happinessEffect: 5,
-        color: 0x77b85a
+        color: 0x70b45c
+    },
+
+    playground: {
+        name: "Playground",
+        category: "Parks",
+        cost: 2500,
+        xp: 45,
+        width: 1,
+        depth: 1,
+        radius: 3,
+        happinessEffect: 7,
+        color: 0x69ae58
     },
 
     neighborhoodPark: {
         name: "Neighborhood Park",
-        category: "Park",
-        cost: 3500,
+        category: "Parks",
+        cost: 4000,
+        xp: 65,
         width: 2,
         depth: 2,
         radius: 4,
         happinessEffect: 10,
-        color: 0x62a94e
+        color: 0x5da84f
     },
 
     sportsPark: {
         name: "Sports Park",
-        category: "Park",
+        category: "Parks",
         cost: 6500,
+        xp: 90,
         width: 3,
         depth: 3,
         radius: 5,
-        happinessEffect: 13,
-        color: 0x4d9850
+        happinessEffect: 14,
+        color: 0x4e994d
     },
 
     botanicalGarden: {
         name: "Botanical Garden",
-        category: "Park",
+        category: "Parks",
         cost: 12000,
+        xp: 150,
         width: 4,
         depth: 4,
         radius: 7,
-        happinessEffect: 18,
-        color: 0x4e9d62
+        happinessEffect: 20,
+        color: 0x48915c
     },
 
-    cityPark: {
+    largeCityPark: {
         name: "Large City Park",
-        category: "Park",
+        category: "Parks",
         cost: 20000,
+        xp: 220,
         width: 5,
         depth: 5,
         radius: 10,
-        happinessEffect: 25,
-        color: 0x3e914c
+        happinessEffect: 28,
+        color: 0x3d8c4c
     },
 
     powerPlant: {
         name: "Power Plant",
         category: "Utilities",
         cost: 18000,
+        xp: 120,
         width: 3,
         depth: 3,
         electricitySupply: 150,
+        electricity: 0,
         water: 10,
         waste: 5,
         pollution: 15,
-        color: 0x795548
+        color: 0x765347
     },
 
     waterPlant: {
         name: "Water Plant",
         category: "Utilities",
         cost: 14000,
+        xp: 100,
         width: 3,
         depth: 3,
         waterSupply: 150,
         electricity: 10,
+        water: 0,
         waste: 4,
         pollution: 2,
         color: 0x4c83b8
@@ -359,102 +538,168 @@ const buildingTypes = {
         name: "Waste Facility",
         category: "Utilities",
         cost: 16000,
+        xp: 110,
         width: 3,
         depth: 3,
         wasteSupply: 150,
         electricity: 12,
         water: 5,
+        waste: 0,
         pollution: 10,
         color: 0x777777
     },
 
-    hospital: {
-        name: "Hospital",
-        category: "Services",
-        cost: 22000,
-        width: 3,
-        depth: 3,
-        radius: 7,
-        healthEffect: 35,
-        electricity: 20,
-        water: 15,
-        waste: 10,
-        color: 0xe5e5e5
-    },
-
     fireStation: {
         name: "Fire Station",
-        category: "Services",
+        category: "Emergency Services",
         cost: 10000,
+        xp: 90,
         width: 2,
         depth: 2,
         radius: 6,
-        fireEffect: 35,
+        fire: 35,
         electricity: 8,
         water: 7,
         waste: 4,
-        color: 0xc74a42
+        color: 0xc94a42
     },
 
     policeStation: {
         name: "Police Station",
-        category: "Services",
+        category: "Emergency Services",
         cost: 10000,
+        xp: 90,
         width: 2,
         depth: 2,
         radius: 6,
-        policeEffect: 35,
+        police: 35,
         electricity: 8,
         water: 5,
         waste: 4,
-        color: 0x456b9d
+        color: 0x466c9d
+    },
+
+    hospital: {
+        name: "Hospital",
+        category: "Emergency Services",
+        cost: 22000,
+        xp: 180,
+        width: 3,
+        depth: 3,
+        radius: 7,
+        health: 40,
+        electricity: 20,
+        water: 15,
+        waste: 10,
+        color: 0xe3e3e3
     },
 
     school: {
         name: "School",
-        category: "Services",
+        category: "Education",
         cost: 13000,
+        xp: 140,
         width: 3,
         depth: 3,
         radius: 7,
-        educationEffect: 40,
+        education: 40,
         electricity: 10,
         water: 8,
         waste: 5,
-        color: 0xd3b56e
+        color: 0xd4b76d
     }
 };
 
-const buildMenuItems = [
-    ["house", "🏠", "House"],
-    ["townhouse", "🏘️", "Townhouse"],
-    ["apartment", "🏢", "Apartment"],
-    ["apartmentTower", "🏙️", "Apartment Tower"],
-    ["shop", "🛍️", "Shop"],
-    ["restaurant", "🍽️", "Restaurant"],
-    ["supermarket", "🛒", "Supermarket"],
-    ["office", "🏢", "Office"],
-    ["warehouse", "🏭", "Warehouse"],
-    ["factory", "🏭", "Factory"],
-    ["manufacturing", "🏗️", "Manufacturing"],
-    ["playground", "🛝", "Playground"],
-    ["neighborhoodPark", "🌳", "Neighborhood Park"],
-    ["sportsPark", "⚽", "Sports Park"],
-    ["botanicalGarden", "🌺", "Botanical Garden"],
-    ["cityPark", "🌲", "Large City Park"],
-    ["powerPlant", "⚡", "Power Plant"],
-    ["waterPlant", "💧", "Water Plant"],
-    ["wastePlant", "♻️", "Waste Facility"],
-    ["hospital", "🏥", "Hospital"],
-    ["fireStation", "🚒", "Fire Station"],
-    ["policeStation", "🚓", "Police Station"],
-    ["school", "🏫", "School"]
+const categories = [
+    {
+        name: "Roads",
+        items: ["road", "upgrade"]
+    },
+
+    {
+        name: "Residential",
+        items: [
+            "house",
+            "townhouse",
+            "apartment",
+            "apartmentTower"
+        ]
+    },
+
+    {
+        name: "Commercial",
+        items: [
+            "shop",
+            "restaurant",
+            "supermarket",
+            "office"
+        ]
+    },
+
+    {
+        name: "Industrial",
+        items: [
+            "warehouse"
+        ]
+    },
+
+    {
+        name: "Factories",
+        items: [
+            "basicFactory",
+            "advancedFactory",
+            "industrialFactory",
+            "modernFactory",
+            "manufacturingPlant",
+            "megaFactory"
+        ]
+    },
+
+    {
+        name: "Parks",
+        items: [
+            "smallPark",
+            "playground",
+            "neighborhoodPark",
+            "sportsPark",
+            "botanicalGarden",
+            "largeCityPark"
+        ]
+    },
+
+    {
+        name: "Utilities",
+        items: [
+            "powerPlant",
+            "waterPlant",
+            "wastePlant"
+        ]
+    },
+
+    {
+        name: "Emergency Services",
+        items: [
+            "fireStation",
+            "policeStation",
+            "hospital"
+        ]
+    },
+
+    {
+        name: "Education",
+        items: [
+            "school"
+        ]
+    }
 ];
 
 const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(CITY_SIZE, CITY_SIZE),
+    new THREE.PlaneGeometry(
+        CITY_SIZE,
+        CITY_SIZE
+    ),
     new THREE.MeshStandardMaterial({
-        color: 0x79a96b,
+        color: 0x78a86a,
         roughness: 1
     })
 );
@@ -463,18 +708,51 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-const water = new THREE.Mesh(
-    new THREE.PlaneGeometry(220, 220),
-    new THREE.MeshStandardMaterial({
-        color: 0x3d9ed0,
-        roughness: 0.25,
-        metalness: 0.05
-    })
-);
+function createWater() {
+    const river = new THREE.Mesh(
+        new THREE.PlaneGeometry(
+            CITY_SIZE,
+            18
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0x3d9ed0,
+            roughness: 0.25,
+            metalness: 0.05
+        })
+    );
 
-water.rotation.x = -Math.PI / 2;
-water.position.y = -0.25;
-scene.add(water);
+    river.rotation.x = -Math.PI / 2;
+    river.position.set(
+        0,
+        -0.12,
+        -31
+    );
+
+    scene.add(river);
+
+    const lake = new THREE.Mesh(
+        new THREE.CircleGeometry(
+            14,
+            48
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0x3d9ed0,
+            roughness: 0.25,
+            metalness: 0.05
+        })
+    );
+
+    lake.rotation.x = -Math.PI / 2;
+    lake.position.set(
+        24,
+        -0.1,
+        20
+    );
+
+    scene.add(lake);
+}
+
+createWater();
 
 function createGrid() {
     const group = new THREE.Group();
@@ -485,20 +763,62 @@ function createGrid() {
         opacity: 0.11
     });
 
-    for (let x = -HALF; x <= HALF; x += TILE) {
-        const geometry = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(x, 0.025, -HALF),
-            new THREE.Vector3(x, 0.025, HALF)
-        ]);
-        group.add(new THREE.Line(geometry, material));
+    for (
+        let x = -HALF;
+        x <= HALF;
+        x += TILE
+    ) {
+        const geometry =
+            new THREE.BufferGeometry()
+                .setFromPoints([
+                    new THREE.Vector3(
+                        x,
+                        0.025,
+                        -HALF
+                    ),
+
+                    new THREE.Vector3(
+                        x,
+                        0.025,
+                        HALF
+                    )
+                ]);
+
+        group.add(
+            new THREE.Line(
+                geometry,
+                material
+            )
+        );
     }
 
-    for (let z = -HALF; z <= HALF; z += TILE) {
-        const geometry = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(-HALF, 0.025, z),
-            new THREE.Vector3(HALF, 0.025, z)
-        ]);
-        group.add(new THREE.Line(geometry, material));
+    for (
+        let z = -HALF;
+        z <= HALF;
+        z += TILE
+    ) {
+        const geometry =
+            new THREE.BufferGeometry()
+                .setFromPoints([
+                    new THREE.Vector3(
+                        -HALF,
+                        0.025,
+                        z
+                    ),
+
+                    new THREE.Vector3(
+                        HALF,
+                        0.025,
+                        z
+                    )
+                ]);
+
+        group.add(
+            new THREE.Line(
+                geometry,
+                material
+            )
+        );
     }
 
     scene.add(group);
@@ -510,36 +830,57 @@ function key(x, z) {
     return `${x},${z}`;
 }
 
-function tileToWorld(x, z) {
+function center(x, z) {
     return {
         x: x * TILE + TILE / 2,
         z: z * TILE + TILE / 2
     };
 }
 
-function worldToTile(worldX, worldZ) {
+function worldToTile(x, z) {
     return {
-        x: Math.floor((worldX + HALF) / TILE) - Math.floor(CITY_SIZE / TILE / 2),
-        z: Math.floor((worldZ + HALF) / TILE) - Math.floor(CITY_SIZE / TILE / 2)
-    };
-}
+        x:
+            Math.floor(
+                (x + HALF) / TILE
+            ) -
+            Math.floor(
+                CITY_SIZE / TILE / 2
+            ),
 
-function tileCenter(x, z) {
-    return {
-        x: x * TILE + TILE / 2,
-        z: z * TILE + TILE / 2
+        z:
+            Math.floor(
+                (z + HALF) / TILE
+            ) -
+            Math.floor(
+                CITY_SIZE / TILE / 2
+            )
     };
 }
 
 function roadExists(x, z) {
-    return roads.has(key(x, z));
+    return roads.has(
+        key(x, z)
+    );
 }
 
 function buildingOccupies(x, z) {
-    for (const building of buildings.values()) {
-        for (let dx = 0; dx < building.width; dx++) {
-            for (let dz = 0; dz < building.depth; dz++) {
-                if (building.x + dx === x && building.z + dz === z) {
+    for (
+        const building of buildings.values()
+    ) {
+        for (
+            let dx = 0;
+            dx < building.width;
+            dx++
+        ) {
+            for (
+                let dz = 0;
+                dz < building.depth;
+                dz++
+            ) {
+                if (
+                    building.x + dx === x &&
+                    building.z + dz === z
+                ) {
                     return true;
                 }
             }
@@ -549,23 +890,49 @@ function buildingOccupies(x, z) {
     return false;
 }
 
-function areaFree(x, z, width, depth) {
-    for (let dx = 0; dx < width; dx++) {
-        for (let dz = 0; dz < depth; dz++) {
+function areaFree(
+    x,
+    z,
+    width,
+    depth
+) {
+    for (
+        let dx = 0;
+        dx < width;
+        dx++
+    ) {
+        for (
+            let dz = 0;
+            dz < depth;
+            dz++
+        ) {
+            const tx = x + dx;
+            const tz = z + dz;
+
             if (
-                x + dx < -8 ||
-                z + dz < -8 ||
-                x + dx > 7 ||
-                z + dz > 7
+                tx < -8 ||
+                tz < -8 ||
+                tx > 7 ||
+                tz > 7
             ) {
                 return false;
             }
 
-            if (roadExists(x + dx, z + dz)) {
+            if (
+                roadExists(
+                    tx,
+                    tz
+                )
+            ) {
                 return false;
             }
 
-            if (buildingOccupies(x + dx, z + dz)) {
+            if (
+                buildingOccupies(
+                    tx,
+                    tz
+                )
+            ) {
                 return false;
             }
         }
@@ -574,69 +941,61 @@ function areaFree(x, z, width, depth) {
     return true;
 }
 
-function adjacentToRoad(x, z, width, depth) {
-    for (let dx = -1; dx <= width; dx++) {
-        if (roadExists(x + dx, z - 1)) return true;
-        if (roadExists(x + dx, z + depth)) return true;
+function adjacentRoad(
+    x,
+    z,
+    width,
+    depth
+) {
+    for (
+        let dx = -1;
+        dx <= width;
+        dx++
+    ) {
+        if (
+            roadExists(
+                x + dx,
+                z - 1
+            )
+        ) {
+            return true;
+        }
+
+        if (
+            roadExists(
+                x + dx,
+                z + depth
+            )
+        ) {
+            return true;
+        }
     }
 
-    for (let dz = 0; dz < depth; dz++) {
-        if (roadExists(x - 1, z + dz)) return true;
-        if (roadExists(x + width, z + dz)) return true;
+    for (
+        let dz = 0;
+        dz < depth;
+        dz++
+    ) {
+        if (
+            roadExists(
+                x - 1,
+                z + dz
+            )
+        ) {
+            return true;
+        }
+
+        if (
+            roadExists(
+                x + width,
+                z + dz
+            )
+        ) {
+            return true;
+        }
     }
 
     return false;
-}
-
-function createRoadBase(x, z, type) {
-    const center = tileCenter(x, z);
-    const group = new THREE.Group();
-
-    const roadWidth =
-        type === "basic" ? 4.5 :
-        type === "avenue" ? 5 :
-        type === "major" ? 6 :
-        7;
-
-    const road = new THREE.Mesh(
-        new THREE.BoxGeometry(roadWidth, 0.18, TILE),
-        new THREE.MeshStandardMaterial({
-            color:
-                type === "basic" ? 0x3e4144 :
-                type === "avenue" ? 0x35383b :
-                type === "major" ? 0x2f3235 :
-                0x26292c,
-            roughness: 0.95
-        })
-    );
-
-    road.position.set(center.x, 0.09, center.z);
-    road.receiveShadow = true;
-    road.castShadow = true;
-
-    if (type === "basic") {
-        road.rotation.y = 0;
-    }
-
-    group.add(road);
-
-    const curb = new THREE.Mesh(
-        new THREE.BoxGeometry(roadWidth + 0.2, 0.22, TILE),
-        new THREE.MeshStandardMaterial({
-            color: 0x777777
-        })
-    );
-
-    curb.position.set(center.x, 0.055, center.z);
-    curb.visible = type !== "basic";
-    group.add(curb);
-
-    createRoadMarkings(group, x, z, type);
-
-    group.position.y = 0.03;
-    scene.add(group);
-
-    return group;
 }
 
 function roadConnections(x, z) {
@@ -648,115 +1007,214 @@ function roadConnections(x, z) {
     };
 }
 
-function createRoadMarkings(group, x, z, type) {
-    const c = roadConnections(x, z);
-    const material = new THREE.MeshBasicMaterial({
-        color: 0xf3d54e
-    });
+function createRoadObject(
+    x,
+    z,
+    type
+) {
+    const c = center(x, z);
+    const group = new THREE.Group();
 
-    const lineWidth = type === "highway" ? 0.18 : 0.12;
+    const width =
+        type === "basic"
+            ? 4.5
+            : type === "avenue"
+                ? 5
+                : type === "major"
+                    ? 6
+                    : 7;
 
-    const horizontal = new THREE.Mesh(
-        new THREE.BoxGeometry(TILE, lineWidth, 0.12),
-        material
+    const road = new THREE.Mesh(
+        new THREE.BoxGeometry(
+            width,
+            0.18,
+            TILE
+        ),
+        new THREE.MeshStandardMaterial({
+            color:
+                type === "basic"
+                    ? 0x404347
+                    : type === "avenue"
+                        ? 0x36393c
+                        : type === "major"
+                            ? 0x303336
+                            : 0x25282b,
+            roughness: 0.95
+        })
     );
 
-    horizontal.position.y = 0.13;
-    horizontal.position.z = 0;
-
-    const vertical = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, lineWidth, TILE),
-        material
+    road.position.set(
+        c.x,
+        0.09,
+        c.z
     );
 
-    vertical.position.y = 0.14;
-    vertical.position.x = 0;
+    road.castShadow = true;
+    road.receiveShadow = true;
+
+    group.add(road);
+
+    const connections =
+        roadConnections(x, z);
 
     const count =
-        Number(c.n) +
-        Number(c.s) +
-        Number(c.e) +
-        Number(c.w);
+        Number(connections.n) +
+        Number(connections.s) +
+        Number(connections.e) +
+        Number(connections.w);
 
-    if (count === 0) {
-        horizontal.position.z = 0;
-        group.add(horizontal);
-        return;
+    const markMaterial =
+        new THREE.MeshBasicMaterial({
+            color: 0xf2d44f
+        });
+
+    if (
+        count === 0 ||
+        count === 1
+    ) {
+        const line =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    TILE,
+                    0.04,
+                    0.12
+                ),
+                markMaterial
+            );
+
+        line.position.set(
+            c.x,
+            0.2,
+            c.z
+        );
+
+        group.add(line);
     }
 
-    if (count === 1) {
-        if (c.n || c.s) {
-            group.add(vertical);
-        } else {
-            group.add(horizontal);
-        }
-        return;
+    if (
+        connections.n &&
+        connections.s
+    ) {
+        const line =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    0.12,
+                    0.04,
+                    TILE
+                ),
+                markMaterial
+            );
+
+        line.position.set(
+            c.x,
+            0.2,
+            c.z
+        );
+
+        group.add(line);
     }
 
-    if (c.n && c.s && c.e && c.w) {
-        group.add(horizontal);
-        group.add(vertical);
-        return;
+    if (
+        connections.e &&
+        connections.w
+    ) {
+        const line =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    TILE,
+                    0.04,
+                    0.12
+                ),
+                markMaterial
+            );
+
+        line.position.set(
+            c.x,
+            0.2,
+            c.z
+        );
+
+        group.add(line);
     }
 
-    if (c.n && c.s) {
-        group.add(vertical);
+    if (
+        count >= 3
+    ) {
+        const line1 =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    TILE,
+                    0.04,
+                    0.1
+                ),
+                markMaterial
+            );
 
-        if (c.e || c.w) {
-            group.add(horizontal);
-        }
+        line1.position.set(
+            c.x,
+            0.2,
+            c.z
+        );
 
-        return;
+        const line2 =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    0.1,
+                    0.04,
+                    TILE
+                ),
+                markMaterial
+            );
+
+        line2.position.set(
+            c.x,
+            0.2,
+            c.z
+        );
+
+        group.add(line1);
+        group.add(line2);
     }
 
-    if (c.e && c.w) {
-        group.add(horizontal);
+    scene.add(group);
 
-        if (c.n || c.s) {
-            group.add(vertical);
-        }
-
-        return;
-    }
-
-    const corner = new THREE.Mesh(
-        new THREE.TorusGeometry(
-            2.2,
-            0.06,
-            5,
-            16,
-            Math.PI / 2
-        ),
-        material
-    );
-
-    corner.rotation.x = Math.PI / 2;
-    corner.position.y = 0.15;
-
-    if (c.n && c.e) {
-        corner.rotation.z = Math.PI;
-    } else if (c.e && c.s) {
-        corner.rotation.z = Math.PI / 2;
-    } else if (c.s && c.w) {
-        corner.rotation.z = 0;
-    } else {
-        corner.rotation.z = -Math.PI / 2;
-    }
-
-    group.add(corner);
+    return group;
 }
 
-function rebuildRoad(x, z) {
-    const road = roads.get(key(x, z));
+function rebuildRoad(
+    x,
+    z
+) {
+    const data =
+        roads.get(
+            key(x, z)
+        );
 
-    if (!road) return;
+    if (!data) {
+        return;
+    }
 
-    scene.remove(road.object);
-    road.object = createRoadBase(x, z, road.type);
+    if (
+        data.object
+    ) {
+        scene.remove(
+            data.object
+        );
+    }
+
+    data.object =
+        createRoadObject(
+            x,
+            z,
+            data.type
+        );
 }
 
-function updateNearbyRoads(x, z) {
-    const positions = [
+function updateRoads(
+    x,
+    z
+) {
+    const nearby = [
         [x, z],
         [x - 1, z],
         [x + 1, z],
@@ -764,16 +1222,49 @@ function updateNearbyRoads(x, z) {
         [x, z + 1]
     ];
 
-    for (const [rx, rz] of positions) {
-        rebuildRoad(rx, rz);
+    for (
+        const [rx, rz] of nearby
+    ) {
+        rebuildRoad(
+            rx,
+            rz
+        );
     }
 }
 
-function buildRoad(x, z) {
-    if (roads.has(key(x, z))) return;
+function buildRoad(
+    x,
+    z
+) {
+    if (
+        roads.has(
+            key(x, z)
+        )
+    ) {
+        showStatus(
+            "Road already built"
+        );
+        return;
+    }
 
-    if (buildingOccupies(x, z)) {
-        showStatus("A building is already here");
+    if (
+        buildingOccupies(
+            x,
+            z
+        )
+    ) {
+        showStatus(
+            "A building is here"
+        );
+        return;
+    }
+
+    if (
+        money < 300
+    ) {
+        showStatus(
+            "Not enough money"
+        );
         return;
     }
 
@@ -784,964 +1275,1006 @@ function buildRoad(x, z) {
         object: null
     };
 
-    roads.set(key(x, z), data);
-    data.object = createRoadBase(x, z, data.type);
+    roads.set(
+        key(x, z),
+        data
+    );
 
-    updateNearbyRoads(x, z);
+    data.object =
+        createRoadObject(
+            x,
+            z,
+            "basic"
+        );
+
+    updateRoads(
+        x,
+        z
+    );
 
     money -= 300;
+
+    gainXP(10);
     updateStats();
 }
 
-function upgradeRoad(x, z) {
-    const road = roads.get(key(x, z));
+function upgradeRoad(
+    x,
+    z
+) {
+    const data =
+        roads.get(
+            key(x, z)
+        );
 
-    if (!road) {
-        showStatus("Select a road to upgrade");
+    if (!data) {
+        showStatus(
+            "There is no road here"
+        );
         return;
     }
 
-    const order = ["basic", "avenue", "major", "highway"];
-    const current = order.indexOf(road.type);
+    const levels = [
+        "basic",
+        "avenue",
+        "major",
+        "highway"
+    ];
 
-    if (current >= order.length - 1) {
-        showStatus("This road is already a highway");
+    const costs = [
+        700,
+        1400,
+        3000
+    ];
+
+    const current =
+        levels.indexOf(
+            data.type
+        );
+
+    if (
+        current ===
+        levels.length - 1
+    ) {
+        showStatus(
+            "Maximum road level"
+        );
         return;
     }
 
-    const costs = [700, 1400, 3000];
-
-    if (money < costs[current]) {
-        showStatus("Not enough money");
+    if (
+        money <
+        costs[current]
+    ) {
+        showStatus(
+            "Not enough money"
+        );
         return;
     }
 
-    money -= costs[current];
-    road.type = order[current + 1];
+    money -=
+        costs[current];
 
-    rebuildRoad(x, z);
-    updateNearbyRoads(x, z);
+    data.type =
+        levels[
+            current + 1
+        ];
+
+    rebuildRoad(
+        x,
+        z
+    );
+
+    updateRoads(
+        x,
+        z
+    );
+
+    gainXP(20);
     updateStats();
+
+    showStatus(
+        `${data.type.toUpperCase()} built`
+    );
 }
 
-function createHouse(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.5;
-    const depth = data.depth * TILE - 0.5;
-
-    const base = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 2.6, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color,
-            roughness: 0.85
-        })
-    );
-
-    base.position.y = 1.3;
-    base.castShadow = true;
-    base.receiveShadow = true;
-    group.add(base);
-
-    const roof = new THREE.Mesh(
-        new THREE.ConeGeometry(
-            Math.max(width, depth) * 0.7,
-            2.3,
-            4
-        ),
-        new THREE.MeshStandardMaterial({
-            color: 0x75483b
-        })
-    );
-
-    roof.position.y = 3.7;
-    roof.rotation.y = Math.PI / 4;
-    roof.scale.z = depth / width;
-    roof.castShadow = true;
-    group.add(roof);
-
-    addWindows(group, width, depth, 1.8, 2);
-    addDoor(group, width, depth);
-
-    return group;
-}
-
-function createTownhouse(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.5;
-    const depth = data.depth * TILE - 0.5;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 5.5, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
-    );
-
-    body.position.y = 2.75;
-    body.castShadow = true;
-    group.add(body);
-
-    for (let floor = 0; floor < 2; floor++) {
-        addWindows(group, width, depth, 1.7 + floor * 2.1, 2);
-    }
-
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.2, 0.35, depth + 0.2),
-        new THREE.MeshStandardMaterial({
-            color: 0x5c514d
-        })
-    );
-
-    roof.position.y = 5.65;
-    group.add(roof);
-
-    addDoor(group, width, depth);
-
-    return group;
-}
-
-function createApartment(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.35;
-    const depth = data.depth * TILE - 0.35;
-    const floors = 4;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, floors * 2.1, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
-    );
-
-    body.position.y = floors * 1.05;
-    body.castShadow = true;
-    group.add(body);
-
-    for (let floor = 0; floor < floors; floor++) {
-        addWindows(group, width, depth, 0.75 + floor * 2.1, 4);
-    }
-
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.25, 0.35, depth + 0.25),
-        new THREE.MeshStandardMaterial({
-            color: 0x52585c
-        })
-    );
-
-    roof.position.y = floors * 2.1 + 0.2;
-    group.add(roof);
-
-    return group;
-}
-
-function createApartmentTower(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.3;
-    const depth = data.depth * TILE - 0.3;
-    const floors = 9;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, floors * 2.2, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color,
-            roughness: 0.65
-        })
-    );
-
-    body.position.y = floors * 1.1;
-    body.castShadow = true;
-    group.add(body);
-
-    for (let floor = 0; floor < floors; floor++) {
-        addWindows(group, width, depth, 0.8 + floor * 2.2, 5);
-    }
-
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.3, 0.5, depth + 0.3),
-        new THREE.MeshStandardMaterial({
-            color: 0x454b50
-        })
-    );
-
-    roof.position.y = floors * 2.2 + 0.25;
-    group.add(roof);
-
-    return group;
-}
-
-function createShop(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.4;
-    const depth = data.depth * TILE - 0.4;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 3.5, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
-    );
-
-    body.position.y = 1.75;
-    body.castShadow = true;
-    group.add(body);
-
-    const storefront = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.75, 1.35, 0.08),
-        new THREE.MeshStandardMaterial({
-            color: 0x9bd0df,
-            roughness: 0.2
-        })
-    );
-
-    storefront.position.set(0, 1.35, depth / 2 + 0.05);
-    group.add(storefront);
-
-    const sign = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.75, 0.5, 0.12),
-        new THREE.MeshStandardMaterial({
-            color: 0xf0d85d
-        })
-    );
-
-    sign.position.set(0, 2.55, depth / 2 + 0.08);
-    group.add(sign);
-
-    return group;
-}
-
-function createRestaurant(type, data) {
-    const group = createShop(type, data);
-
-    const awning = new THREE.Mesh(
-        new THREE.BoxGeometry(3.8, 0.18, 0.8),
-        new THREE.MeshStandardMaterial({
-            color: 0xb83d35
-        })
-    );
-
-    awning.position.set(0, 2.05, 2.65);
-    group.add(awning);
-
-    return group;
-}
-
-function createSupermarket(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.3;
-    const depth = data.depth * TILE - 0.3;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 3.8, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
-    );
-
-    body.position.y = 1.9;
-    body.castShadow = true;
-    group.add(body);
-
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.2, 0.3, depth + 0.2),
-        new THREE.MeshStandardMaterial({
-            color: 0xeeeeee
-        })
-    );
-
-    roof.position.y = 3.9;
-    group.add(roof);
-
-    const glass = new THREE.Mesh(
-        new THREE.BoxGeometry(width * 0.8, 1.3, 0.08),
-        new THREE.MeshStandardMaterial({
-            color: 0x9fd4e2,
-            roughness: 0.2
-        })
-    );
-
-    glass.position.set(0, 1.35, depth / 2 + 0.05);
-    group.add(glass);
-
-    return group;
-}
-
-function createOffice(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.4;
-    const depth = data.depth * TILE - 0.4;
-    const floors = 7;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, floors * 2, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color,
-            roughness: 0.35,
-            metalness: 0.1
-        })
-    );
-
-    body.position.y = floors;
-    body.castShadow = true;
-    group.add(body);
-
-    for (let floor = 0; floor < floors; floor++) {
-        addWindows(group, width, depth, 0.55 + floor * 2, 5, 0x9bc6d3);
-    }
-
-    return group;
-}
-
-function createWarehouse(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.35;
-    const depth = data.depth * TILE - 0.35;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 4, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
-    );
-
-    body.position.y = 2;
-    body.castShadow = true;
-    group.add(body);
-
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.2, 0.35, depth + 0.2),
-        new THREE.MeshStandardMaterial({
-            color: 0x4e5355
-        })
-    );
-
-    roof.position.y = 4.15;
-    group.add(roof);
-
-    const door = new THREE.Mesh(
-        new THREE.BoxGeometry(2.2, 2.3, 0.08),
-        new THREE.MeshStandardMaterial({
-            color: 0x303438
-        })
-    );
-
-    door.position.set(0, 1.3, depth / 2 + 0.05);
-    group.add(door);
-
-    return group;
-}
-
-function createFactory(type, data) {
-    const group = createWarehouse(type, data);
-
-    for (let i = -1; i <= 1; i++) {
-        const chimney = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.35, 0.45, 5, 10),
-            new THREE.MeshStandardMaterial({
-                color: 0x5b5b5b
-            })
-        );
-
-        chimney.position.set(i * 2.1, 6.5, -1);
-        chimney.castShadow = true;
-        group.add(chimney);
-
-        createSmoke(group, i * 2.1, 9, -1);
-    }
-
-    return group;
-}
-
-function createManufacturing(type, data) {
-    const group = createFactory(type, data);
-
-    const tank = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.2, 1.2, 3.5, 16),
-        new THREE.MeshStandardMaterial({
-            color: 0x9a9a9a
-        })
-    );
-
-    tank.position.set(5, 2, -3);
-    group.add(tank);
-
-    return group;
-}
-
-function createPark(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.3;
-    const depth = data.depth * TILE - 0.3;
-
-    const grass = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 0.16, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
-    );
-
-    grass.position.y = 0.1;
-    grass.receiveShadow = true;
-    group.add(grass);
-
-    const treeCount = Math.max(
-        3,
-        Math.floor(data.width * data.depth * 0.7)
-    );
-
-    for (let i = 0; i < treeCount; i++) {
-        const tree = createTree();
-
-        tree.position.x =
-            (Math.random() - 0.5) * Math.max(1, width - 1);
-
-        tree.position.z =
-            (Math.random() - 0.5) * Math.max(1, depth - 1);
-
-        tree.scale.setScalar(0.7 + Math.random() * 0.35);
-        group.add(tree);
-    }
-
-    if (type.name.includes("Sports")) {
-        const field = new THREE.Mesh(
-            new THREE.BoxGeometry(width * 0.65, 0.05, depth * 0.55),
-            new THREE.MeshStandardMaterial({
-                color: 0x3d873f
-            })
-        );
-
-        field.position.y = 0.2;
-        group.add(field);
-    }
-
-    if (type.name.includes("Playground")) {
-        const equipment = new THREE.Mesh(
-            new THREE.BoxGeometry(1.8, 1.2, 1.8),
-            new THREE.MeshStandardMaterial({
-                color: 0xd19b3d
-            })
-        );
-
-        equipment.position.y = 0.8;
-        group.add(equipment);
-    }
-
-    if (type.name.includes("Botanical")) {
-        for (let i = 0; i < 8; i++) {
-            const flower = new THREE.Mesh(
-                new THREE.SphereGeometry(0.15, 8, 8),
-                new THREE.MeshStandardMaterial({
-                    color: 0xf1d45c
-                })
-            );
-
-            flower.position.set(
-                (Math.random() - 0.5) * width,
-                0.4,
-                (Math.random() - 0.5) * depth
-            );
-
-            group.add(flower);
+function isUnlocked(
+    id
+) {
+    for (
+        let l = 1;
+        l <= level;
+        l++
+    ) {
+        if (
+            levelData[l] &&
+            levelData[l].unlock.includes(id)
+        ) {
+            return true;
         }
     }
 
-    return group;
+    return false;
 }
 
-function createUtility(type, data) {
-    const group = createWarehouse(type, data);
-
-    const tank = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.5, 1.5, 3.5, 20),
-        new THREE.MeshStandardMaterial({
-            color: type.name === "Water Plant" ? 0x5c9ed0 : 0x858585
-        })
-    );
-
-    tank.position.set(4, 2.2, -3);
-    group.add(tank);
-
-    return group;
+function factoryLimit() {
+    if (level >= 8) return 4;
+    if (level >= 5) return 2;
+    return 1;
 }
 
-function createHospital(type, data) {
-    const group = createOffice(type, data);
-
-    const cross = new THREE.Mesh(
-        new THREE.BoxGeometry(1.7, 0.25, 0.4),
-        new THREE.MeshStandardMaterial({
-            color: 0xd84040
-        })
+function canBuildFactory() {
+    return (
+        factories.length <
+        factoryLimit()
     );
-
-    cross.position.set(0, 7.2, 5.05);
-    group.add(cross);
-
-    const cross2 = cross.clone();
-    cross2.scale.set(0.25, 1, 4.25);
-    group.add(cross2);
-
-    return group;
 }
 
-function createService(type, data) {
-    const group = new THREE.Group();
+function gainXP(amount) {
+    xp += amount;
 
-    const width = data.width * TILE - 0.4;
-    const depth = data.depth * TILE - 0.4;
+    let newLevel =
+        level;
 
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 3.5, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
-    );
+    for (
+        let l = 10;
+        l >= 1;
+        l--
+    ) {
+        if (
+            xp >=
+            levelData[l].xp
+        ) {
+            newLevel = l;
+            break;
+        }
+    }
 
-    body.position.y = 1.75;
-    body.castShadow = true;
-    group.add(body);
+    if (
+        newLevel >
+        level
+    ) {
+        level =
+            newLevel;
 
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.2, 0.25, depth + 0.2),
-        new THREE.MeshStandardMaterial({
-            color: 0x444444
-        })
-    );
+        showStatus(
+            `LEVEL ${level} UNLOCKED`
+        );
 
-    roof.position.y = 3.65;
-    group.add(roof);
+        updateBuildMenu();
+    }
 
-    if (type.name === "Fire Station") {
-        const garage = new THREE.Mesh(
-            new THREE.BoxGeometry(2.5, 2.1, 0.12),
+    updateStats();
+}
+
+function createTree() {
+    const group =
+        new THREE.Group();
+
+    const trunk =
+        new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                0.15,
+                0.22,
+                1.4,
+                8
+            ),
             new THREE.MeshStandardMaterial({
-                color: 0x383838
+                color: 0x6e5038
             })
         );
 
-        garage.position.set(0, 1.15, depth / 2 + 0.07);
-        group.add(garage);
-    }
+    trunk.position.y =
+        0.7;
 
-    return group;
-}
-
-function createSchool(type, data) {
-    const group = new THREE.Group();
-
-    const width = data.width * TILE - 0.4;
-    const depth = data.depth * TILE - 0.4;
-
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(width, 4.5, depth),
-        new THREE.MeshStandardMaterial({
-            color: type.color
-        })
+    group.add(
+        trunk
     );
 
-    body.position.y = 2.25;
-    body.castShadow = true;
-    group.add(body);
-
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.2, 0.3, depth + 0.2),
-        new THREE.MeshStandardMaterial({
-            color: 0x8d6551
-        })
-    );
-
-    roof.position.y = 4.65;
-    group.add(roof);
-
-    for (let i = -1; i <= 1; i++) {
-        const window = new THREE.Mesh(
-            new THREE.BoxGeometry(1.1, 1, 0.08),
+    const leaves =
+        new THREE.Mesh(
+            new THREE.SphereGeometry(
+                0.9,
+                8,
+                6
+            ),
             new THREE.MeshStandardMaterial({
-                color: 0x8cc7d5
+                color: 0x448648
             })
         );
 
-        window.position.set(i * 2.5, 2.7, depth / 2 + 0.05);
-        group.add(window);
-    }
+    leaves.position.y =
+        1.7;
+
+    group.add(
+        leaves
+    );
 
     return group;
 }
 
-function addWindows(group, width, depth, y, count, color = 0x92c9d5) {
-    const material = new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.25,
-        metalness: 0.05
-    });
+function addWindows(
+    group,
+    width,
+    depth,
+    y,
+    count,
+    color = 0x94cad7
+) {
+    const material =
+        new THREE.MeshStandardMaterial({
+            color,
+            roughness: 0.2
+        });
 
-    const spacing = width / (count + 1);
+    const spacing =
+        width /
+        (count + 1);
 
-    for (let i = 1; i <= count; i++) {
-        const window = new THREE.Mesh(
-            new THREE.BoxGeometry(0.55, 0.65, 0.08),
-            material
-        );
+    for (
+        let i = 1;
+        i <= count;
+        i++
+    ) {
+        const window =
+            new THREE.Mesh(
+                new THREE.BoxGeometry(
+                    0.55,
+                    0.65,
+                    0.08
+                ),
+                material
+            );
 
         window.position.set(
-            -width / 2 + spacing * i,
+            -width / 2 +
+                spacing * i,
             y,
-            depth / 2 + 0.04
+            depth / 2
         );
 
-        group.add(window);
+        group.add(
+            window
+        );
 
-        const back = window.clone();
-        back.position.z = -depth / 2 - 0.04;
-        group.add(back);
+        const back =
+            window.clone();
+
+        back.position.z =
+            -depth / 2;
+
+        group.add(
+            back
+        );
     }
 }
 
-function addDoor(group, width, depth) {
-    const door = new THREE.Mesh(
-        new THREE.BoxGeometry(0.7, 1.4, 0.08),
-        new THREE.MeshStandardMaterial({
-            color: 0x514137
-        })
-    );
+function addDoor(
+    group,
+    depth
+) {
+    const door =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                0.7,
+                1.4,
+                0.08
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x514137
+            })
+        );
 
     door.position.set(
         0,
         0.7,
-        depth / 2 + 0.05
+        depth / 2
     );
 
-    group.add(door);
+    group.add(
+        door
+    );
 }
 
-function createTree() {
-    const group = new THREE.Group();
+function houseObject(
+    type
+) {
+    const group =
+        new THREE.Group();
 
-    const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.22, 1.4, 8),
-        new THREE.MeshStandardMaterial({
-            color: 0x70503a
-        })
+    const width =
+        type.width * TILE -
+        0.5;
+
+    const depth =
+        type.depth * TILE -
+        0.5;
+
+    const body =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width,
+                2.7,
+                depth
+            ),
+            new THREE.MeshStandardMaterial({
+                color:
+                    type.color
+            })
+        );
+
+    body.position.y =
+        1.35;
+
+    body.castShadow = true;
+
+    group.add(
+        body
     );
 
-    trunk.position.y = 0.7;
-    trunk.castShadow = true;
-    group.add(trunk);
+    const roof =
+        new THREE.Mesh(
+            new THREE.ConeGeometry(
+                Math.max(
+                    width,
+                    depth
+                ) * 0.7,
+                2.2,
+                4
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x70473b
+            })
+        );
 
-    const leaves = new THREE.Mesh(
-        new THREE.SphereGeometry(0.9, 8, 6),
-        new THREE.MeshStandardMaterial({
-            color: 0x438548
-        })
+    roof.position.y =
+        3.8;
+
+    roof.rotation.y =
+        Math.PI / 4;
+
+    group.add(
+        roof
     );
 
-    leaves.position.y = 1.7;
-    leaves.castShadow = true;
-    group.add(leaves);
+    addWindows(
+        group,
+        width,
+        depth,
+        1.8,
+        2
+    );
+
+    addDoor(
+        group,
+        depth
+    );
 
     return group;
 }
 
-function createSmoke(parent, x, y, z) {
-    const smoke = new THREE.Mesh(
-        new THREE.SphereGeometry(0.45, 8, 8),
-        new THREE.MeshStandardMaterial({
-            color: 0xaaaaaa,
-            transparent: true,
-            opacity: 0.35
-        })
+function apartmentObject(
+    type
+) {
+    const group =
+        new THREE.Group();
+
+    const width =
+        type.width * TILE -
+        0.4;
+
+    const depth =
+        type.depth * TILE -
+        0.4;
+
+    const floors =
+        type.name ===
+        "Apartment Tower"
+            ? 9
+            : 4;
+
+    const body =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width,
+                floors * 2,
+                depth
+            ),
+            new THREE.MeshStandardMaterial({
+                color:
+                    type.color
+            })
+        );
+
+    body.position.y =
+        floors;
+
+    body.castShadow = true;
+
+    group.add(
+        body
     );
 
-    smoke.position.set(x, y, z);
-    smoke.userData.baseY = y;
-    smoke.userData.speed = 0.5 + Math.random() * 0.5;
-
-    parent.add(smoke);
-    smokeParticles.push(smoke);
-}
-
-function createBuildingObject(type, data) {
-    if (
-        type.category === "Residential" &&
-        type.name === "House"
+    for (
+        let floor = 0;
+        floor < floors;
+        floor++
     ) {
-        return createHouse(type, data);
+        addWindows(
+            group,
+            width,
+            depth,
+            0.8 +
+                floor * 2,
+            5
+        );
+    }
+
+    return group;
+}
+
+function shopObject(
+    type
+) {
+    const group =
+        new THREE.Group();
+
+    const width =
+        type.width * TILE -
+        0.4;
+
+    const depth =
+        type.depth * TILE -
+        0.4;
+
+    const body =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width,
+                3.5,
+                depth
+            ),
+            new THREE.MeshStandardMaterial({
+                color:
+                    type.color
+            })
+        );
+
+    body.position.y =
+        1.75;
+
+    body.castShadow = true;
+
+    group.add(
+        body
+    );
+
+    const glass =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width * 0.75,
+                1.3,
+                0.08
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x9dd2df,
+                roughness: 0.2
+            })
+        );
+
+    glass.position.set(
+        0,
+        1.3,
+        depth / 2
+    );
+
+    group.add(
+        glass
+    );
+
+    return group;
+}
+
+function factoryObject(
+    type
+) {
+    const group =
+        new THREE.Group();
+
+    const width =
+        type.width * TILE -
+        0.35;
+
+    const depth =
+        type.depth * TILE -
+        0.35;
+
+    const body =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width,
+                4.5,
+                depth
+            ),
+            new THREE.MeshStandardMaterial({
+                color:
+                    type.color
+            })
+        );
+
+    body.position.y =
+        2.25;
+
+    body.castShadow = true;
+
+    group.add(
+        body
+    );
+
+    const roof =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width + 0.25,
+                0.3,
+                depth + 0.25
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x4d5154
+            })
+        );
+
+    roof.position.y =
+        4.6;
+
+    group.add(
+        roof
+    );
+
+    const chimneys =
+        type.name ===
+            "Basic Factory"
+            ? 1
+            : type.name ===
+                "Advanced Factory"
+                ? 2
+                : 3;
+
+    for (
+        let i = 0;
+        i < chimneys;
+        i++
+    ) {
+        const chimney =
+            new THREE.Mesh(
+                new THREE.CylinderGeometry(
+                    0.35,
+                    0.45,
+                    4.5,
+                    10
+                ),
+                new THREE.MeshStandardMaterial({
+                    color: 0x555555
+                })
+            );
+
+        chimney.position.set(
+            -width / 3 +
+                i * 2,
+            6.8,
+            -depth / 4
+        );
+
+        group.add(
+            chimney
+        );
+    }
+
+    return group;
+}
+
+function parkObject(
+    type
+) {
+    const group =
+        new THREE.Group();
+
+    const width =
+        type.width * TILE -
+        0.3;
+
+    const depth =
+        type.depth * TILE -
+        0.3;
+
+    const grass =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width,
+                0.16,
+                depth
+            ),
+            new THREE.MeshStandardMaterial({
+                color:
+                    type.color
+            })
+        );
+
+    grass.position.y =
+        0.1;
+
+    group.add(
+        grass
+    );
+
+    const count =
+        Math.max(
+            3,
+            Math.floor(
+                type.width *
+                type.depth *
+                0.65
+            )
+        );
+
+    for (
+        let i = 0;
+        i < count;
+        i++
+    ) {
+        const tree =
+            createTree();
+
+        tree.position.set(
+            (Math.random() - 0.5) *
+                Math.max(
+                    1,
+                    width - 1
+                ),
+            0,
+            (Math.random() - 0.5) *
+                Math.max(
+                    1,
+                    depth - 1
+                )
+        );
+
+        tree.scale.setScalar(
+            0.65 +
+                Math.random() *
+                0.35
+        );
+
+        group.add(
+            tree
+        );
+    }
+
+    return group;
+}
+
+function serviceObject(
+    type
+) {
+    const group =
+        new THREE.Group();
+
+    const width =
+        type.width * TILE -
+        0.4;
+
+    const depth =
+        type.depth * TILE -
+        0.4;
+
+    const body =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width,
+                4,
+                depth
+            ),
+            new THREE.MeshStandardMaterial({
+                color:
+                    type.color
+            })
+        );
+
+    body.position.y =
+        2;
+
+    group.add(
+        body
+    );
+
+    const roof =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                width + 0.2,
+                0.3,
+                depth + 0.2
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x454545
+            })
+        );
+
+    roof.position.y =
+        4.15;
+
+    group.add(
+        roof
+    );
+
+    return group;
+}
+
+function buildingObject(
+    type
+) {
+    if (
+        type.category ===
+        "Residential"
+    ) {
+        if (
+            type.name ===
+            "House" ||
+            type.name ===
+            "Townhouse"
+        ) {
+            return houseObject(
+                type
+            );
+        }
+
+        return apartmentObject(
+            type
+        );
     }
 
     if (
-        type.category === "Residential" &&
-        type.name === "Townhouse"
+        type.category ===
+        "Commercial"
     ) {
-        return createTownhouse(type, data);
+        return shopObject(
+            type
+        );
     }
 
-    if (type.name === "Apartment") {
-        return createApartment(type, data);
+    if (
+        type.category ===
+        "Factories"
+    ) {
+        return factoryObject(
+            type
+        );
     }
 
-    if (type.name === "Apartment Tower") {
-        return createApartmentTower(type, data);
+    if (
+        type.category ===
+        "Industrial"
+    ) {
+        return factoryObject(
+            type
+        );
     }
 
-    if (type.name === "Shop") {
-        return createShop(type, data);
+    if (
+        type.category ===
+        "Parks"
+    ) {
+        return parkObject(
+            type
+        );
     }
 
-    if (type.name === "Restaurant") {
-        return createRestaurant(type, data);
-    }
-
-    if (type.name === "Supermarket") {
-        return createSupermarket(type, data);
-    }
-
-    if (type.name === "Office") {
-        return createOffice(type, data);
-    }
-
-    if (type.name === "Warehouse") {
-        return createWarehouse(type, data);
-    }
-
-    if (type.name === "Factory") {
-        return createFactory(type, data);
-    }
-
-    if (type.name === "Manufacturing Plant") {
-        return createManufacturing(type, data);
-    }
-
-    if (type.category === "Park") {
-        return createPark(type, data);
-    }
-
-    if (type.category === "Utilities") {
-        return createUtility(type, data);
-    }
-
-    if (type.name === "Hospital") {
-        return createHospital(type, data);
-    }
-
-    if (type.name === "School") {
-        return createSchool(type, data);
-    }
-
-    if (type.category === "Services") {
-        return createService(type, data);
-    }
-
-    return createHouse(type, data);
+    return serviceObject(
+        type
+    );
 }
 
-function getBuildingHeight(type) {
-    if (type.name === "House") return 4.8;
-    if (type.name === "Townhouse") return 5.9;
-    if (type.name === "Apartment") return 8.8;
-    if (type.name === "Apartment Tower") return 20;
-    if (type.name === "Office") return 14;
-    if (type.name === "Hospital") return 15;
-    if (type.name === "School") return 5;
-    if (type.name === "Factory") return 10;
-    if (type.name === "Manufacturing Plant") return 10;
-    if (type.name === "Warehouse") return 4.5;
-    if (type.category === "Park") return 2.5;
-    if (type.category === "Utilities") return 8;
-    if (type.category === "Services") return 4.5;
-    return 5;
-}
+function createEffect(
+    data,
+    type
+) {
+    if (
+        !type.radius
+    ) {
+        return;
+    }
 
-function addEffect(data, type) {
-    if (!type.radius) return;
-
-    const effect = {
+    effects.push({
         x: data.x,
         z: data.z,
         radius: type.radius,
-        happiness: type.happinessEffect || 0,
-        health: type.healthEffect || 0,
-        fire: type.fireEffect || 0,
-        police: type.policeEffect || 0,
-        education: type.educationEffect || 0,
-        pollution: type.pollution || 0,
-        category: type.category,
+        happiness:
+            type.happinessEffect ||
+            0,
+        health:
+            type.health ||
+            0,
+        fire:
+            type.fire ||
+            0,
+        police:
+            type.police ||
+            0,
+        education:
+            type.education ||
+            0,
         object: null
-    };
-
-    effects.push(effect);
+    });
 }
 
-function createBuilding(typeId, x, z) {
-    const type = buildingTypes[typeId];
+function createBuilding(
+    id,
+    x,
+    z
+) {
+    const type =
+        types[id];
 
-    if (!type) return;
-
-    if (!areaFree(x, z, type.width, type.depth)) {
-        showStatus("That space is occupied");
+    if (!type) {
         return;
     }
 
     if (
-        type.category !== "Park" &&
-        type.category !== "Utilities" &&
-        type.category !== "Services" &&
-        !adjacentToRoad(x, z, type.width, type.depth)
+        !isUnlocked(id)
     ) {
-        showStatus("Buildings need to connect to a road");
+        showStatus(
+            "Locked — level up first"
+        );
         return;
     }
 
-    if (money < type.cost) {
-        showStatus("Not enough money");
+    if (
+        type.category ===
+        "Factories"
+    ) {
+        if (
+            !canBuildFactory()
+        ) {
+            showStatus(
+                `Factory limit: ${factoryLimit()}`
+            );
+            return;
+        }
+    }
+
+    if (
+        !areaFree(
+            x,
+            z,
+            type.width,
+            type.depth
+        )
+    ) {
+        showStatus(
+            "That space is occupied"
+        );
         return;
     }
 
-    money -= type.cost;
+    if (
+        !adjacentRoad(
+            x,
+            z,
+            type.width,
+            type.depth
+        )
+    ) {
+        showStatus(
+            "Connect it to a road"
+        );
+        return;
+    }
 
-    const center = tileCenter(
-        x + (type.width - 1) / 2,
-        z + (type.depth - 1) / 2
-    );
+    if (
+        money <
+        type.cost
+    ) {
+        showStatus(
+            "Not enough money"
+        );
+        return;
+    }
+
+    money -=
+        type.cost;
+
+    const c =
+        center(
+            x +
+                (type.width - 1) /
+                    2,
+            z +
+                (type.depth - 1) /
+                    2
+        );
 
     const data = {
-        id: `${typeId}-${Date.now()}-${Math.random()}`,
-        typeId,
+        id:
+            `${id}-${Date.now()}-${Math.random()}`,
+        typeId: id,
         x,
         z,
-        width: type.width,
-        depth: type.depth,
+        width:
+            type.width,
+        depth:
+            type.depth,
         object: null
     };
 
-    const object = createBuildingObject(type, data);
+    const object =
+        buildingObject(
+            type
+        );
 
     object.position.set(
-        center.x,
+        c.x,
         0,
-        center.z
+        c.z
     );
 
-    object.scale.y = 0.05;
-    scene.add(object);
+    object.scale.y =
+        0.05;
 
-    data.object = object;
-    buildings.set(data.id, data);
+    scene.add(
+        object
+    );
 
-    constructionObjects.push({
+    data.object =
+        object;
+
+    buildings.set(
+        data.id,
+        data
+    );
+
+    construction.push({
         object,
         target: 1,
-        speed: 2.2
+        speed:
+            1 /
+            Math.max(
+                2,
+                type.buildTime ||
+                3
+            )
     });
 
-    addEffect(data, type);
+    createEffect(
+        data,
+        type
+    );
+
+    if (
+        type.category ===
+        "Factories"
+    ) {
+        factories.push({
+            buildingId:
+                data.id,
+            typeId: id,
+            production: 0,
+            working: true
+        });
+    }
+
+    gainXP(
+        type.xp
+    );
 
     updateStats();
-    showStatus(`${type.name} built`);
-}
 
-function calculateEffects() {
-    let happinessBonus = 0;
-    let health = 0;
-    let fire = 0;
-    let police = 0;
-    let education = 0;
-    let pollutionEffect = 0;
-
-    services.health.coverage = 0;
-    services.fire.coverage = 0;
-    services.police.coverage = 0;
-    services.education.coverage = 0;
-
-    for (const effect of effects) {
-        if (
-            effect.category === "Park"
-        ) {
-            happinessBonus += effect.happiness;
-        }
-
-        if (effect.health) {
-            health += effect.health;
-            services.health.coverage += effect.health;
-        }
-
-        if (effect.fire) {
-            fire += effect.fire;
-            services.fire.coverage += effect.fire;
-        }
-
-        if (effect.police) {
-            police += effect.police;
-            services.police.coverage += effect.police;
-        }
-
-        if (effect.education) {
-            education += effect.education;
-            services.education.coverage += effect.education;
-        }
-
-        if (effect.pollution) {
-            pollutionEffect += effect.pollution;
-        }
-    }
-
-    for (const building of buildings.values()) {
-        const type = buildingTypes[building.typeId];
-
-        if (!type) continue;
-
-        if (type.category === "Residential") {
-            const centerX =
-                building.x + (building.width - 1) / 2;
-
-            const centerZ =
-                building.z + (building.depth - 1) / 2;
-
-            for (const effect of effects) {
-                const dx = centerX - effect.x;
-                const dz = centerZ - effect.z;
-                const distance = Math.sqrt(
-                    dx * dx + dz * dz
-                );
-
-                if (distance <= effect.radius) {
-                    if (effect.happiness) {
-                        happinessBonus +=
-                            effect.happiness * 0.12;
-                    }
-
-                    if (effect.health) {
-                        health += 1;
-                    }
-
-                    if (effect.education) {
-                        education += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    return {
-        happinessBonus,
-        health,
-        fire,
-        police,
-        education,
-        pollutionEffect
-    };
+    showStatus(
+        `${type.name} construction started`
+    );
 }
 
 function updateStats() {
     population = 0;
     jobs = 0;
+    pollution = 0;
 
     services.electricity.supply = 0;
     services.electricity.demand = 0;
@@ -1752,51 +2285,98 @@ function updateStats() {
     services.waste.supply = 0;
     services.waste.demand = 0;
 
-    let baseHappiness = 70;
-    let basePollution = 0;
+    services.health = 0;
+    services.fire = 0;
+    services.police = 0;
+    services.education = 0;
 
-    for (const building of buildings.values()) {
-        const type = buildingTypes[building.typeId];
+    let baseHappiness =
+        70;
 
-        if (!type) continue;
+    for (
+        const building of buildings.values()
+    ) {
+        const type =
+            types[
+                building.typeId
+            ];
 
-        population += type.population || 0;
-        jobs += type.jobs || 0;
+        population +=
+            type.population ||
+            0;
+
+        jobs +=
+            type.jobs ||
+            0;
 
         services.electricity.demand +=
-            type.electricity || 0;
+            type.electricity ||
+            0;
 
         services.water.demand +=
-            type.water || 0;
+            type.water ||
+            0;
 
         services.waste.demand +=
-            type.waste || 0;
+            type.waste ||
+            0;
 
         services.electricity.supply +=
-            type.electricitySupply || 0;
+            type.electricitySupply ||
+            0;
 
         services.water.supply +=
-            type.waterSupply || 0;
+            type.waterSupply ||
+            0;
 
         services.waste.supply +=
-            type.wasteSupply || 0;
+            type.wasteSupply ||
+            0;
 
-        baseHappiness += type.happiness || 0;
-        basePollution += type.pollution || 0;
+        pollution +=
+            type.pollution ||
+            0;
+
+        baseHappiness +=
+            type.happiness ||
+            0;
     }
 
-    const effectData = calculateEffects();
+    let parkBonus = 0;
 
-    let rating = baseHappiness;
+    for (
+        const effect of effects
+    ) {
+        parkBonus +=
+            effect.happiness ||
+            0;
 
-    if (population > 0) {
-        rating += effectData.happinessBonus;
+        services.health +=
+            effect.health ||
+            0;
+
+        services.fire +=
+            effect.fire ||
+            0;
+
+        services.police +=
+            effect.police ||
+            0;
+
+        services.education +=
+            effect.education ||
+            0;
     }
 
-    const electricityRatio =
+    let rating =
+        baseHappiness +
+        parkBonus;
+
+    const powerRatio =
         services.electricity.demand === 0
             ? 1
-            : Math.min(
+            :
+            Math.min(
                 1,
                 services.electricity.supply /
                 services.electricity.demand
@@ -1805,7 +2385,8 @@ function updateStats() {
     const waterRatio =
         services.water.demand === 0
             ? 1
-            : Math.min(
+            :
+            Math.min(
                 1,
                 services.water.supply /
                 services.water.demand
@@ -1814,863 +2395,1546 @@ function updateStats() {
     const wasteRatio =
         services.waste.demand === 0
             ? 1
-            : Math.min(
+            :
+            Math.min(
                 1,
                 services.waste.supply /
                 services.waste.demand
             );
 
-    const serviceRatio = Math.min(
-        electricityRatio,
-        waterRatio,
-        wasteRatio
-    );
-
-    if (serviceRatio < 1) {
-        rating -= (1 - serviceRatio) * 40;
-    }
-
-    if (services.electricity.supply === 0 &&
-        services.electricity.demand > 0) {
-        rating -= 20;
-    }
-
-    if (services.water.supply === 0 &&
-        services.water.demand > 0) {
-        rating -= 20;
-    }
-
-    if (services.waste.supply === 0 &&
-        services.waste.demand > 0) {
-        rating -= 15;
-    }
-
-    if (services.health.coverage < population * 0.15) {
-        rating -= 2;
-    }
-
-    if (services.education.coverage < population * 0.1) {
-        rating -= 2;
-    }
-
-    pollution =
-        Math.max(
-            0,
-            basePollution + effectData.pollutionEffect
+    const serviceRatio =
+        Math.min(
+            powerRatio,
+            waterRatio,
+            wasteRatio
         );
 
-    rating -= Math.min(25, pollution * 0.08);
+    if (
+        serviceRatio <
+        1
+    ) {
+        rating -=
+            (1 - serviceRatio) *
+            45;
+    }
 
-    happiness = Math.max(
-        0,
-        Math.min(100, Math.round(rating))
-    );
+    rating -=
+        Math.min(
+            25,
+            pollution * 0.08
+        );
 
-    const populationElement =
-        document.getElementById("population");
+    if (
+        population >
+        0
+    ) {
+        if (
+            services.health <
+            population * 0.1
+        ) {
+            rating -= 3;
+        }
 
-    const happinessElement =
-        document.getElementById("happiness");
+        if (
+            services.education <
+            population * 0.1
+        ) {
+            rating -= 3;
+        }
+    }
 
-    const trafficElement =
-        document.getElementById("traffic");
+    happiness =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                Math.round(
+                    rating
+                )
+            )
+        );
+
+    traffic =
+        Math.min(
+            100,
+            Math.round(
+                buildings.size * 1.5 +
+                roads.size * 0.6
+            )
+        );
+
+    const income =
+        population * 3 +
+        jobs * 2;
 
     const moneyElement =
-        document.getElementById("money");
+        document.getElementById(
+            "money"
+        );
+
+    const populationElement =
+        document.getElementById(
+            "population"
+        );
+
+    const happinessElement =
+        document.getElementById(
+            "happiness"
+        );
+
+    const trafficElement =
+        document.getElementById(
+            "traffic"
+        );
 
     const incomeElement =
-        document.getElementById("income");
+        document.getElementById(
+            "income"
+        );
 
-    if (populationElement) {
+    const levelElement =
+        document.getElementById(
+            "city-level"
+        );
+
+    const xpElement =
+        document.getElementById(
+            "city-xp"
+        );
+
+    if (
+        moneyElement
+    ) {
+        moneyElement.textContent =
+            `$${Math.floor(
+                money
+            ).toLocaleString()}`;
+    }
+
+    if (
+        populationElement
+    ) {
         populationElement.textContent =
             population.toLocaleString();
     }
 
-    if (happinessElement) {
+    if (
+        happinessElement
+    ) {
         happinessElement.textContent =
             `${happiness}%`;
     }
 
-    if (trafficElement) {
+    if (
+        trafficElement
+    ) {
         trafficElement.textContent =
-            `${Math.min(100, Math.round(
-                buildings.size * 2 +
-                roads.size * 0.5
-            ))}%`;
+            `${traffic}%`;
     }
 
-    if (moneyElement) {
-        moneyElement.textContent =
-            `$${Math.floor(money).toLocaleString()}`;
-    }
-
-    if (incomeElement) {
-        const income =
-            Math.round(
-                population * 3 +
-                jobs * 2
-            );
-
+    if (
+        incomeElement
+    ) {
         incomeElement.textContent =
             `+$${income}/day`;
+    }
+
+    if (
+        levelElement
+    ) {
+        levelElement.textContent =
+            `Level ${level}`;
+    }
+
+    if (
+        xpElement
+    ) {
+        const next =
+            level < 10
+                ? levelData[
+                    level + 1
+                ].xp
+                : levelData[10].xp;
+
+        xpElement.textContent =
+            level >= 10
+                ? "MAX LEVEL"
+                :
+                `${xp}/${next} XP`;
     }
 
     updateServicePanel();
 }
 
 function updateServicePanel() {
-    let panel = document.getElementById("service-panel");
+    let panel =
+        document.getElementById(
+            "service-panel"
+        );
 
     if (!panel) {
-        panel = document.createElement("div");
-        panel.id = "service-panel";
+        panel =
+            document.createElement(
+                "div"
+            );
 
-        panel.style.position = "absolute";
-        panel.style.right = "18px";
-        panel.style.bottom = "18px";
-        panel.style.width = "235px";
-        panel.style.padding = "14px";
-        panel.style.borderRadius = "14px";
-        panel.style.background = "rgba(19,25,28,.94)";
-        panel.style.border = "1px solid rgba(255,255,255,.12)";
-        panel.style.color = "white";
-        panel.style.fontSize = "12px";
-        panel.style.zIndex = "20";
+        panel.id =
+            "service-panel";
+
+        panel.style.position =
+            "absolute";
+
+        panel.style.right =
+            "18px";
+
+        panel.style.bottom =
+            "18px";
+
+        panel.style.width =
+            "245px";
+
+        panel.style.padding =
+            "14px";
+
+        panel.style.borderRadius =
+            "14px";
+
+        panel.style.background =
+            "rgba(19,25,28,.95)";
+
+        panel.style.color =
+            "white";
+
+        panel.style.zIndex =
+            "20";
+
+        panel.style.fontSize =
+            "12px";
+
         panel.style.boxShadow =
             "0 12px 40px rgba(0,0,0,.3)";
 
-        document.getElementById("game").appendChild(panel);
+        document
+            .getElementById(
+                "game"
+            )
+            .appendChild(
+                panel
+            );
     }
 
-    const electricityPercent =
-        services.electricity.demand === 0
-            ? 100
-            : Math.round(
-                Math.min(
-                    100,
-                    services.electricity.supply /
-                    services.electricity.demand *
-                    100
-                )
-            );
+    const power =
+        services.electricity;
 
-    const waterPercent =
-        services.water.demand === 0
-            ? 100
-            : Math.round(
-                Math.min(
-                    100,
-                    services.water.supply /
-                    services.water.demand *
-                    100
-                )
-            );
+    const water =
+        services.water;
 
-    const wastePercent =
-        services.waste.demand === 0
-            ? 100
-            : Math.round(
-                Math.min(
-                    100,
-                    services.waste.supply /
-                    services.waste.demand *
-                    100
-                )
-            );
+    const waste =
+        services.waste;
+
+    function ratio(
+        supply,
+        demand
+    ) {
+        if (
+            demand === 0
+        ) {
+            return 100;
+        }
+
+        return Math.round(
+            Math.min(
+                100,
+                supply /
+                demand *
+                100
+            )
+        );
+    }
 
     panel.innerHTML = `
         <div style="font-weight:800;font-size:14px;margin-bottom:10px">
             CITY SERVICES
         </div>
 
-        <div style="margin:7px 0">
+        <div style="margin:6px 0">
             ⚡ Electricity
             <b style="float:right">
-                ${services.electricity.supply}/${services.electricity.demand}
+                ${power.supply}/${power.demand}
             </b>
         </div>
 
         <div style="height:5px;background:#30383c;border-radius:5px;overflow:hidden">
-            <div style="height:100%;width:${electricityPercent}%;background:#e7c84b"></div>
+            <div style="height:100%;width:${ratio(power.supply,power.demand)}%;background:#e7c84b"></div>
         </div>
 
-        <div style="margin:10px 0 7px">
+        <div style="margin:10px 0 6px">
             💧 Water
             <b style="float:right">
-                ${services.water.supply}/${services.water.demand}
+                ${water.supply}/${water.demand}
             </b>
         </div>
 
         <div style="height:5px;background:#30383c;border-radius:5px;overflow:hidden">
-            <div style="height:100%;width:${waterPercent}%;background:#58aee0"></div>
+            <div style="height:100%;width:${ratio(water.supply,water.demand)}%;background:#4ca9df"></div>
         </div>
 
-        <div style="margin:10px 0 7px">
+        <div style="margin:10px 0 6px">
             ♻️ Waste
             <b style="float:right">
-                ${services.waste.supply}/${services.waste.demand}
+                ${waste.supply}/${waste.demand}
             </b>
         </div>
 
         <div style="height:5px;background:#30383c;border-radius:5px;overflow:hidden">
-            <div style="height:100%;width:${wastePercent}%;background:#8f9b8f"></div>
+            <div style="height:100%;width:${ratio(waste.supply,waste.demand)}%;background:#8e9a8e"></div>
         </div>
 
-        <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px">
-            🏥 Health coverage:
-            ${Math.round(services.health.coverage)}
-        </div>
-
-        <div style="margin-top:5px">
-            🚒 Fire coverage:
-            ${Math.round(services.fire.coverage)}
+        <div style="margin-top:12px;padding-top:9px;border-top:1px solid rgba(255,255,255,.1)">
+            🏥 Health: ${Math.round(services.health)}
         </div>
 
         <div style="margin-top:5px">
-            🚓 Police coverage:
-            ${Math.round(services.police.coverage)}
+            🚒 Fire: ${Math.round(services.fire)}
         </div>
 
         <div style="margin-top:5px">
-            🎓 Education coverage:
-            ${Math.round(services.education.coverage)}
+            🚓 Police: ${Math.round(services.police)}
         </div>
 
         <div style="margin-top:5px">
-            ☁️ Pollution:
-            ${Math.round(pollution)}
+            🎓 Education: ${Math.round(services.education)}
+        </div>
+
+        <div style="margin-top:5px">
+            ☁️ Pollution: ${Math.round(pollution)}
+        </div>
+
+        <div style="margin-top:8px">
+            🏭 Factories: ${factories.length}/${factoryLimit()}
         </div>
     `;
 }
 
 function createEffectTiles() {
-    for (const effect of effects) {
-        if (effect.object) {
-            scene.remove(effect.object);
+    for (
+        const effect of effects
+    ) {
+        if (
+            effect.object
+        ) {
+            scene.remove(
+                effect.object
+            );
         }
 
-        const group = new THREE.Group();
+        const group =
+            new THREE.Group();
 
-        const isPark = effect.category === "Park";
-        const color = isPark ? 0x52c878 : 0x4e8edb;
+        const color =
+            effect.happiness
+                ? 0x55c878
+                : 0x4c8edb;
 
         for (
-            let dx = -effect.radius;
-            dx <= effect.radius;
+            let dx =
+                -effect.radius;
+            dx <=
+                effect.radius;
             dx++
         ) {
             for (
-                let dz = -effect.radius;
-                dz <= effect.radius;
+                let dz =
+                    -effect.radius;
+                dz <=
+                    effect.radius;
                 dz++
             ) {
                 if (
-                    Math.sqrt(dx * dx + dz * dz) >
+                    Math.sqrt(
+                        dx * dx +
+                        dz * dz
+                    ) >
                     effect.radius
                 ) {
                     continue;
                 }
 
-                const center = tileCenter(
-                    effect.x + dx,
-                    effect.z + dz
-                );
+                const c =
+                    center(
+                        effect.x +
+                            dx,
+                        effect.z +
+                            dz
+                    );
 
-                const tile = new THREE.Mesh(
-                    new THREE.PlaneGeometry(
-                        TILE - 0.12,
-                        TILE - 0.12
-                    ),
-                    new THREE.MeshBasicMaterial({
-                        color,
-                        transparent: true,
-                        opacity: 0.14,
-                        depthWrite: false
-                    })
-                );
+                const tile =
+                    new THREE.Mesh(
+                        new THREE.PlaneGeometry(
+                            TILE - 0.12,
+                            TILE - 0.12
+                        ),
+                        new THREE.MeshBasicMaterial({
+                            color,
+                            transparent: true,
+                            opacity: 0.14,
+                            depthWrite: false
+                        })
+                    );
 
-                tile.rotation.x = -Math.PI / 2;
+                tile.rotation.x =
+                    -Math.PI / 2;
+
                 tile.position.set(
-                    center.x,
-                    0.065,
-                    center.z
+                    c.x,
+                    0.07,
+                    c.z
                 );
 
-                group.add(tile);
+                group.add(
+                    tile
+                );
             }
         }
 
-        group.visible = false;
-        scene.add(group);
-        effect.object = group;
+        group.visible =
+            false;
+
+        scene.add(
+            group
+        );
+
+        effect.object =
+            group;
     }
 }
 
-function toggleEffects() {
-    let visible = false;
+function toggleCoverage() {
+    let show =
+        false;
 
-    for (const effect of effects) {
-        if (effect.object) {
-            visible = !effect.object.visible;
+    for (
+        const effect of effects
+    ) {
+        if (
+            effect.object
+        ) {
+            show =
+                !effect.object.visible;
             break;
         }
     }
 
-    for (const effect of effects) {
-        if (effect.object) {
-            effect.object.visible = visible;
+    for (
+        const effect of effects
+    ) {
+        if (
+            effect.object
+        ) {
+            effect.object.visible =
+                show;
         }
     }
 
     showStatus(
-        visible
+        show
             ? "Coverage shown"
             : "Coverage hidden"
     );
 }
 
-function showStatus(message) {
-    let status = document.getElementById("build-status");
+function showStatus(
+    text
+) {
+    let status =
+        document.getElementById(
+            "build-status"
+        );
 
     if (!status) {
-        status = document.createElement("div");
-        status.id = "build-status";
-        status.className = "build-status";
-        document.getElementById("game").appendChild(status);
+        status =
+            document.createElement(
+                "div"
+            );
+
+        status.id =
+            "build-status";
+
+        status.className =
+            "build-status";
+
+        document
+            .getElementById(
+                "game"
+            )
+            .appendChild(
+                status
+            );
     }
 
-    status.textContent = message;
-    status.classList.add("show");
+    status.textContent =
+        text;
 
-    clearTimeout(status._timer);
+    status.classList.add(
+        "show"
+    );
 
-    status._timer = setTimeout(() => {
-        status.classList.remove("show");
-    }, 1800);
+    clearTimeout(
+        status.timer
+    );
+
+    status.timer =
+        setTimeout(
+            () => {
+                status.classList.remove(
+                    "show"
+                );
+            },
+            1800
+        );
 }
 
 function createUI() {
-    const topbar = document.createElement("div");
-    topbar.className = "city-topbar";
+    const top =
+        document.createElement(
+            "div"
+        );
 
-    topbar.innerHTML = `
-        <div class="city-title">Cities - Flashcard.com</div>
+    top.className =
+        "city-topbar";
+
+    top.innerHTML = `
+        <div class="city-title">
+            Cities - Flashcard.com
+        </div>
 
         <div class="city-stats">
 
             <div class="stat">
-                <div class="stat-label">Money</div>
-                <div class="stat-value" id="money">$50,000</div>
+                <div class="stat-label">
+                    Level
+                </div>
+                <div class="stat-value"
+                     id="city-level">
+                    Level 1
+                </div>
             </div>
 
             <div class="stat">
-                <div class="stat-label">Population</div>
-                <div class="stat-value" id="population">0</div>
+                <div class="stat-label">
+                    XP
+                </div>
+                <div class="stat-value"
+                     id="city-xp">
+                    0/100 XP
+                </div>
             </div>
 
             <div class="stat">
-                <div class="stat-label">Happiness</div>
-                <div class="stat-value" id="happiness">70%</div>
+                <div class="stat-label">
+                    Money
+                </div>
+                <div class="stat-value"
+                     id="money">
+                    $50,000
+                </div>
             </div>
 
             <div class="stat">
-                <div class="stat-label">Traffic</div>
-                <div class="stat-value" id="traffic">0%</div>
+                <div class="stat-label">
+                    Population
+                </div>
+                <div class="stat-value"
+                     id="population">
+                    0
+                </div>
             </div>
 
             <div class="stat">
-                <div class="stat-label">Income</div>
-                <div class="stat-value" id="income">+$0/day</div>
+                <div class="stat-label">
+                    Happiness
+                </div>
+                <div class="stat-value"
+                     id="happiness">
+                    70%
+                </div>
             </div>
 
+            <div class="stat">
+                <div class="stat-label">
+                    Income
+                </div>
+                <div class="stat-value"
+                     id="income">
+                    +$0/day
+                </div>
+            </div>
         </div>
     `;
 
-    document.getElementById("game").appendChild(topbar);
+    document
+        .getElementById(
+            "game"
+        )
+        .appendChild(
+            top
+        );
 
-    const buildButton = document.createElement("button");
-    buildButton.className = "build-main";
-    buildButton.textContent = "BUILD";
-    buildButton.id = "build-button";
+    const button =
+        document.createElement(
+            "button"
+        );
 
-    document.getElementById("game").appendChild(buildButton);
+    button.className =
+        "build-main";
 
-    const menu = document.createElement("div");
-    menu.className = "build-menu";
-    menu.id = "build-menu";
+    button.id =
+        "build-button";
+
+    button.textContent =
+        "BUILD";
+
+    document
+        .getElementById(
+            "game"
+        )
+        .appendChild(
+            button
+        );
+
+    const menu =
+        document.createElement(
+            "div"
+        );
+
+    menu.className =
+        "build-menu";
+
+    menu.id =
+        "build-menu";
 
     menu.innerHTML = `
         <div class="menu-header">
-            <div class="menu-title">Build</div>
-            <button class="close-menu" id="close-menu">×</button>
+            <div class="menu-title">
+                Build
+            </div>
+
+            <button
+                class="close-menu"
+                id="close-menu">
+                ×
+            </button>
         </div>
 
-        <div class="build-grid" id="build-grid"></div>
+        <div
+            id="category-tabs"
+            style="
+                display:flex;
+                gap:7px;
+                overflow-x:auto;
+                margin-bottom:12px;
+                padding-bottom:3px;
+            ">
+        </div>
 
-        <div class="build-info">
-            Click a building, then click a free grid tile next to a road.
-            Roads can be upgraded without rebuilding them.
+        <div
+            class="build-grid"
+            id="build-grid">
+        </div>
+
+        <div
+            class="build-info"
+            id="build-info">
         </div>
     `;
 
-    document.getElementById("game").appendChild(menu);
+    document
+        .getElementById(
+            "game"
+        )
+        .appendChild(
+            menu
+        );
 
-    const grid = document.getElementById("build-grid");
+    const tabs =
+        document.getElementById(
+            "category-tabs"
+        );
 
-    for (const [id, icon, name] of buildMenuItems) {
-        const type = buildingTypes[id];
+    const grid =
+        document.getElementById(
+            "build-grid"
+        );
 
-        const card = document.createElement("button");
-        card.className = "build-card";
-        card.dataset.tool = id;
+    let currentCategory =
+        "Residential";
 
-        card.innerHTML = `
-            <div class="build-icon">${icon}</div>
-            <div class="build-name">${name}</div>
-            <div class="build-price">$${type.cost.toLocaleString()}</div>
-        `;
+    function renderCategory(
+        category
+    ) {
+        currentCategory =
+            category;
 
-        card.addEventListener("click", () => {
-            selectedTool = id;
+        tabs
+            .querySelectorAll(
+                "button"
+            )
+            .forEach(
+                b => {
+                    b.style.background =
+                        b.dataset.category ===
+                        category
+                            ? "#4b7bec"
+                            : "#252d31";
+                }
+            );
 
-            document.querySelectorAll(".build-card")
-                .forEach(el => el.classList.remove("selected"));
+        grid.innerHTML =
+            "";
 
-            card.classList.add("selected");
+        const data =
+            categories.find(
+                c =>
+                    c.name ===
+                    category
+            );
 
-            menu.classList.remove("open");
-            buildButton.classList.remove("active");
+        if (!data) {
+            return;
+        }
 
-            showStatus(`${name} selected`);
-        });
+        for (
+            const id of
+            data.items
+        ) {
+            if (
+                id !== "road" &&
+                id !== "upgrade" &&
+                !isUnlocked(id)
+            ) {
+                continue;
+            }
 
-        grid.appendChild(card);
+            const type =
+                types[id];
+
+            const card =
+                document.createElement(
+                    "button"
+                );
+
+            card.className =
+                "build-card";
+
+            if (
+                id === "road"
+            ) {
+                card.innerHTML = `
+                    <div class="build-icon">
+                        🛣️
+                    </div>
+                    <div class="build-name">
+                        Road
+                    </div>
+                    <div class="build-price">
+                        $300
+                    </div>
+                `;
+            } else if (
+                id === "upgrade"
+            ) {
+                card.innerHTML = `
+                    <div class="build-icon">
+                        ⬆️
+                    </div>
+                    <div class="build-name">
+                        Upgrade Road
+                    </div>
+                    <div class="build-price">
+                        $700+
+                    </div>
+                `;
+            } else {
+                const lockedFactory =
+                    type.category ===
+                        "Factories" &&
+                    factories.length >=
+                        factoryLimit();
+
+                card.innerHTML = `
+                    <div class="build-icon">
+                        ${
+                            type.category ===
+                            "Residential"
+                                ? "🏠"
+                                : type.category ===
+                                    "Commercial"
+                                    ? "🏢"
+                                    : type.category ===
+                                        "Factories"
+                                        ? "🏭"
+                                        : type.category ===
+                                            "Parks"
+                                            ? "🌳"
+                                            : type.category ===
+                                                "Utilities"
+                                                ? "⚡"
+                                                : "🏛️"
+                        }
+                    </div>
+
+                    <div class="build-name">
+                        ${type.name}
+                    </div>
+
+                    <div class="build-price">
+                        ${
+                            lockedFactory
+                                ? `Limit ${factoryLimit()}`
+                                : `$${type.cost.toLocaleString()}`
+                        }
+                    </div>
+                `;
+            }
+
+            card.addEventListener(
+                "click",
+                () => {
+                    if (
+                        id !== "road" &&
+                        id !== "upgrade" &&
+                        !isUnlocked(id)
+                    ) {
+                        showStatus(
+                            "Locked"
+                        );
+                        return;
+                    }
+
+                    selectedTool =
+                        id;
+
+                    menu.classList.remove(
+                        "open"
+                    );
+
+                    button.classList.remove(
+                        "active"
+                    );
+
+                    showStatus(
+                        id === "road"
+                            ? "Road selected"
+                            : id === "upgrade"
+                                ? "Upgrade selected"
+                                : `${types[id].name} selected`
+                    );
+                }
+            );
+
+            grid.appendChild(
+                card
+            );
+        }
+
+        document.getElementById(
+            "build-info"
+        ).textContent =
+            category === "Factories"
+                ? `Factories: ${factories.length}/${factoryLimit()} available`
+                : "Buildings must connect to a road.";
     }
 
-    const tools = document.createElement("div");
+    for (
+        const category of categories
+    ) {
+        const tab =
+            document.createElement(
+                "button"
+            );
 
-    tools.style.position = "absolute";
-    tools.style.top = "92px";
-    tools.style.left = "18px";
-    tools.style.zIndex = "20";
-    tools.style.display = "flex";
-    tools.style.gap = "7px";
+        tab.dataset.category =
+            category.name;
+
+        tab.textContent =
+            category.name;
+
+        tab.style.border =
+            "0";
+
+        tab.style.padding =
+            "9px 12px";
+
+        tab.style.borderRadius =
+            "9px";
+
+        tab.style.background =
+            "#252d31";
+
+        tab.style.color =
+            "white";
+
+        tab.style.cursor =
+            "pointer";
+
+        tab.style.fontWeight =
+            "700";
+
+        tab.addEventListener(
+            "click",
+            () => {
+                renderCategory(
+                    category.name
+                );
+            }
+        );
+
+        tabs.appendChild(
+            tab
+        );
+    }
+
+    renderCategory(
+        currentCategory
+    );
+
+    window.updateBuildMenu =
+        () => {
+            renderCategory(
+                currentCategory
+            );
+        };
+
+    button.addEventListener(
+        "click",
+        () => {
+            menu.classList.toggle(
+                "open"
+            );
+
+            button.classList.toggle(
+                "active"
+            );
+        }
+    );
+
+    document
+        .getElementById(
+            "close-menu"
+        )
+        .addEventListener(
+            "click",
+            () => {
+                menu.classList.remove(
+                    "open"
+                );
+
+                button.classList.remove(
+                    "active"
+                );
+            }
+        );
+
+    const tools =
+        document.createElement(
+            "div"
+        );
+
+    tools.style.position =
+        "absolute";
+
+    tools.style.top =
+        "92px";
+
+    tools.style.left =
+        "18px";
+
+    tools.style.zIndex =
+        "20";
+
+    tools.style.display =
+        "flex";
+
+    tools.style.gap =
+        "7px";
 
     tools.innerHTML = `
-        <button id="road-tool" style="
-            border:0;
-            padding:10px 13px;
-            border-radius:9px;
-            background:#263238;
-            color:white;
-            cursor:pointer;
-            font-weight:700;
-        ">ROAD</button>
-
-        <button id="upgrade-tool" style="
-            border:0;
-            padding:10px 13px;
-            border-radius:9px;
-            background:#263238;
-            color:white;
-            cursor:pointer;
-            font-weight:700;
-        ">UPGRADE</button>
-
-        <button id="coverage-tool" style="
-            border:0;
-            padding:10px 13px;
-            border-radius:9px;
-            background:#263238;
-            color:white;
-            cursor:pointer;
-            font-weight:700;
-        ">COVERAGE</button>
+        <button
+            id="coverage-tool"
+            style="
+                border:0;
+                padding:10px 13px;
+                border-radius:9px;
+                background:#263238;
+                color:white;
+                cursor:pointer;
+                font-weight:700;
+            ">
+            COVERAGE
+        </button>
     `;
 
-    document.getElementById("game").appendChild(tools);
+    document
+        .getElementById(
+            "game"
+        )
+        .appendChild(
+            tools
+        );
 
-    buildButton.addEventListener("click", () => {
-        menu.classList.toggle("open");
-        buildButton.classList.toggle("active");
-    });
-
-    document.getElementById("close-menu")
-        .addEventListener("click", () => {
-            menu.classList.remove("open");
-            buildButton.classList.remove("active");
-        });
-
-    document.getElementById("road-tool")
-        .addEventListener("click", () => {
-            selectedTool = "road";
-            showStatus("Road tool selected");
-        });
-
-    document.getElementById("upgrade-tool")
-        .addEventListener("click", () => {
-            selectedTool = "upgrade";
-            showStatus("Upgrade tool selected");
-        });
-
-    document.getElementById("coverage-tool")
-        .addEventListener("click", toggleEffects);
+    document
+        .getElementById(
+            "coverage-tool"
+        )
+        .addEventListener(
+            "click",
+            toggleCoverage
+        );
 }
 
 createUI();
 
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
+const raycaster =
+    new THREE.Raycaster();
 
-const hoverMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    opacity: 0.12,
-    side: THREE.DoubleSide
-});
+const mouse =
+    new THREE.Vector2();
 
-const hoverTile = new THREE.Mesh(
-    new THREE.PlaneGeometry(TILE - 0.12, TILE - 0.12),
-    hoverMaterial
+const hover =
+    new THREE.Mesh(
+        new THREE.PlaneGeometry(
+            TILE - 0.12,
+            TILE - 0.12
+        ),
+        new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.12
+        })
+    );
+
+hover.rotation.x =
+    -Math.PI / 2;
+
+hover.position.y =
+    0.08;
+
+hover.visible =
+    false;
+
+scene.add(
+    hover
 );
 
-hoverTile.rotation.x = -Math.PI / 2;
-hoverTile.position.y = 0.08;
-hoverTile.visible = false;
-scene.add(hoverTile);
+const preview =
+    new THREE.Mesh(
+        new THREE.BoxGeometry(
+            TILE,
+            0.1,
+            TILE
+        ),
+        new THREE.MeshBasicMaterial({
+            color: 0x65c978,
+            transparent: true,
+            opacity: 0.3
+        })
+    );
 
-const buildPreview = new THREE.Mesh(
-    new THREE.BoxGeometry(TILE - 0.25, 0.1, TILE - 0.25),
-    new THREE.MeshBasicMaterial({
-        color: 0x65b9ff,
-        transparent: true,
-        opacity: 0.3
-    })
+preview.position.y =
+    0.12;
+
+preview.visible =
+    false;
+
+scene.add(
+    preview
 );
 
-buildPreview.position.y = 0.12;
-buildPreview.visible = false;
-scene.add(buildPreview);
-
-function getPointerTile(event) {
-    const rect = renderer.domElement.getBoundingClientRect();
+function pointerTile(
+    event
+) {
+    const rect =
+        renderer.domElement.getBoundingClientRect();
 
     mouse.x =
-        ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        ((event.clientX -
+            rect.left) /
+            rect.width) *
+            2 -
+        1;
 
     mouse.y =
-        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        -(
+            (event.clientY -
+                rect.top) /
+            rect.height
+        ) *
+            2 +
+        1;
 
-    raycaster.setFromCamera(mouse, camera);
+    raycaster.setFromCamera(
+        mouse,
+        camera
+    );
 
-    const intersection =
-        raycaster.intersectObject(ground, false)[0];
+    const hit =
+        raycaster.intersectObject(
+            ground
+        )[0];
 
-    if (!intersection) return null;
+    if (!hit) {
+        return null;
+    }
 
     return worldToTile(
-        intersection.point.x,
-        intersection.point.z
+        hit.point.x,
+        hit.point.z
     );
-}
-
-function updateHover(event) {
-    const tile = getPointerTile(event);
-
-    if (!tile) {
-        hoverTile.visible = false;
-        buildPreview.visible = false;
-        return;
-    }
-
-    hoveredTile = tile;
-
-    const center = tileCenter(tile.x, tile.z);
-
-    hoverTile.position.set(
-        center.x,
-        0.08,
-        center.z
-    );
-
-    hoverTile.visible = true;
-
-    if (
-        selectedTool &&
-        buildingTypes[selectedTool]
-    ) {
-        const type = buildingTypes[selectedTool];
-
-        const previewCenter = tileCenter(
-            tile.x + (type.width - 1) / 2,
-            tile.z + (type.depth - 1) / 2
-        );
-
-        buildPreview.geometry.dispose();
-
-        buildPreview.geometry =
-            new THREE.BoxGeometry(
-                type.width * TILE - 0.25,
-                0.1,
-                type.depth * TILE - 0.25
-            );
-
-        buildPreview.position.set(
-            previewCenter.x,
-            0.13,
-            previewCenter.z
-        );
-
-        const valid =
-            areaFree(
-                tile.x,
-                tile.z,
-                type.width,
-                type.depth
-            ) &&
-            (
-                type.category === "Park" ||
-                type.category === "Utilities" ||
-                type.category === "Services" ||
-                adjacentToRoad(
-                    tile.x,
-                    tile.z,
-                    type.width,
-                    type.depth
-                )
-            );
-
-        buildPreview.material.color.set(
-            valid ? 0x65c978 : 0xe85b5b
-        );
-
-        buildPreview.visible = true;
-    } else {
-        buildPreview.visible = false;
-    }
 }
 
 renderer.domElement.addEventListener(
     "pointermove",
-    updateHover
+    event => {
+        const tile =
+            pointerTile(
+                event
+            );
+
+        if (!tile) {
+            hover.visible =
+                false;
+
+            preview.visible =
+                false;
+
+            return;
+        }
+
+        const c =
+            center(
+                tile.x,
+                tile.z
+            );
+
+        hover.position.set(
+            c.x,
+            0.08,
+            c.z
+        );
+
+        hover.visible =
+            true;
+
+        if (
+            selectedTool &&
+            types[
+                selectedTool
+            ]
+        ) {
+            const type =
+                types[
+                    selectedTool
+                ];
+
+            const pc =
+                center(
+                    tile.x +
+                        (type.width - 1) /
+                            2,
+                    tile.z +
+                        (type.depth - 1) /
+                            2
+                );
+
+            preview.geometry.dispose();
+
+            preview.geometry =
+                new THREE.BoxGeometry(
+                    type.width *
+                        TILE -
+                        0.2,
+                    0.1,
+                    type.depth *
+                        TILE -
+                        0.2
+                );
+
+            preview.position.set(
+                pc.x,
+                0.13,
+                pc.z
+            );
+
+            const valid =
+                isUnlocked(
+                    selectedTool
+                ) &&
+                areaFree(
+                    tile.x,
+                    tile.z,
+                    type.width,
+                    type.depth
+                ) &&
+                adjacentRoad(
+                    tile.x,
+                    tile.z,
+                    type.width,
+                    type.depth
+                );
+
+            preview.material.color.set(
+                valid
+                    ? 0x65c978
+                    : 0xe85b5b
+            );
+
+            preview.visible =
+                true;
+        } else {
+            preview.visible =
+                false;
+        }
+    }
 );
+
+function handleTile(
+    tile
+) {
+    if (
+        !selectedTool
+    ) {
+        return;
+    }
+
+    if (
+        selectedTool ===
+        "road"
+    ) {
+        buildRoad(
+            tile.x,
+            tile.z
+        );
+
+        return;
+    }
+
+    if (
+        selectedTool ===
+        "upgrade"
+    ) {
+        upgradeRoad(
+            tile.x,
+            tile.z
+        );
+
+        return;
+    }
+
+    createBuilding(
+        selectedTool,
+        tile.x,
+        tile.z
+    );
+}
 
 renderer.domElement.addEventListener(
     "pointerdown",
     event => {
-        if (event.button !== 0) return;
+        if (
+            event.button !== 0
+        ) {
+            return;
+        }
 
-        dragging = true;
+        dragging =
+            true;
 
-        const tile = getPointerTile(event);
+        const tile =
+            pointerTile(
+                event
+            );
 
-        if (!tile) return;
+        if (!tile) {
+            return;
+        }
 
-        handleTileClick(tile);
-        lastBuildTile = tile;
+        handleTile(
+            tile
+        );
+
+        lastTile =
+            tile;
+    }
+);
+
+renderer.domElement.addEventListener(
+    "pointermove",
+    event => {
+        if (
+            !dragging
+        ) {
+            return;
+        }
+
+        if (
+            selectedTool !==
+            "road"
+        ) {
+            return;
+        }
+
+        const tile =
+            pointerTile(
+                event
+            );
+
+        if (!tile) {
+            return;
+        }
+
+        if (
+            !lastTile ||
+            tile.x !==
+                lastTile.x ||
+            tile.z !==
+                lastTile.z
+        ) {
+            buildRoad(
+                tile.x,
+                tile.z
+            );
+
+            lastTile =
+                tile;
+        }
     }
 );
 
 renderer.domElement.addEventListener(
     "pointerup",
     () => {
-        dragging = false;
-        lastBuildTile = null;
+        dragging =
+            false;
+
+        lastTile =
+            null;
     }
 );
 
 renderer.domElement.addEventListener(
     "pointerleave",
     () => {
-        dragging = false;
-        lastBuildTile = null;
+        dragging =
+            false;
+
+        lastTile =
+            null;
     }
 );
-
-renderer.domElement.addEventListener(
-    "pointermove",
-    event => {
-        if (!dragging) return;
-
-        if (
-            selectedTool !== "road"
-        ) {
-            return;
-        }
-
-        const tile = getPointerTile(event);
-
-        if (!tile) return;
-
-        if (
-            !lastBuildTile ||
-            tile.x !== lastBuildTile.x ||
-            tile.z !== lastBuildTile.z
-        ) {
-            buildRoad(tile.x, tile.z);
-            lastBuildTile = tile;
-        }
-    }
-);
-
-function handleTileClick(tile) {
-    if (!selectedTool) {
-        return;
-    }
-
-    if (selectedTool === "road") {
-        buildRoad(tile.x, tile.z);
-        return;
-    }
-
-    if (selectedTool === "upgrade") {
-        upgradeRoad(tile.x, tile.z);
-        return;
-    }
-
-    if (buildingTypes[selectedTool]) {
-        createBuilding(
-            selectedTool,
-            tile.x,
-            tile.z
-        );
-    }
-}
 
 window.addEventListener(
     "keydown",
     event => {
         if (
-            event.key.toLowerCase() === "u"
+            event.key ===
+            "Escape"
         ) {
-            selectedTool = "upgrade";
-            showStatus("Upgrade tool selected");
+            selectedTool =
+                null;
+
+            preview.visible =
+                false;
+
+            showStatus(
+                "Tool cancelled"
+            );
         }
 
         if (
-            event.key === "Escape"
+            event.key.toLowerCase() ===
+            "u"
         ) {
-            selectedTool = null;
-            buildPreview.visible = false;
+            selectedTool =
+                "upgrade";
 
-            document.querySelectorAll(".build-card")
-                .forEach(el =>
-                    el.classList.remove("selected")
-                );
-
-            showStatus("Tool cancelled");
+            showStatus(
+                "Upgrade selected"
+            );
         }
     }
 );
 
-function addInitialRoads() {
-    for (let x = -6; x <= 6; x++) {
-        buildRoad(x, 0);
+function createStarterRoads() {
+    for (
+        let x = -6;
+        x <= 6;
+        x++
+    ) {
+        buildRoad(
+            x,
+            0
+        );
     }
 
-    for (let z = -4; z <= 4; z++) {
-        if (z !== 0) {
-            buildRoad(0, z);
+    for (
+        let z = -4;
+        z <= 4;
+        z++
+    ) {
+        if (
+            z !== 0
+        ) {
+            buildRoad(
+                0,
+                z
+            );
         }
     }
+
+    money =
+        50000;
+
+    updateStats();
 }
 
-function addInitialTrees() {
-    for (let i = 0; i < 55; i++) {
+function createTrees() {
+    for (
+        let i = 0;
+        i < 60;
+        i++
+    ) {
         const x =
             Math.floor(
-                Math.random() * 32
+                Math.random() *
+                    32
             ) - 16;
 
         const z =
             Math.floor(
-                Math.random() * 32
+                Math.random() *
+                    32
             ) - 16;
 
         if (
-            Math.abs(x) < 7 &&
-            Math.abs(z) < 7
+            Math.abs(x) <
+                7 &&
+            Math.abs(z) <
+                7
         ) {
             continue;
         }
 
         if (
-            roadExists(x, z) ||
-            buildingOccupies(x, z)
+            roadExists(
+                x,
+                z
+            )
         ) {
             continue;
         }
 
-        const tree = createTree();
-        const center = tileCenter(x, z);
+        const tree =
+            createTree();
+
+        const c =
+            center(
+                x,
+                z
+            );
 
         tree.position.set(
-            center.x,
+            c.x,
             0,
-            center.z
+            c.z
         );
 
         tree.scale.setScalar(
-            0.7 + Math.random() * 0.6
+            0.7 +
+                Math.random() *
+                0.5
         );
 
-        scene.add(tree);
-        trees.push(tree);
+        scene.add(
+            tree
+        );
+
+        trees.push(
+            tree
+        );
     }
 }
 
-addInitialRoads();
-addInitialTrees();
+createStarterRoads();
+createTrees();
 
 function animate() {
-    requestAnimationFrame(animate);
+    requestAnimationFrame(
+        animate
+    );
 
-    const time = performance.now() * 0.001;
+    const time =
+        performance.now() *
+        0.001;
 
-    for (const tree of trees) {
+    for (
+        const tree of trees
+    ) {
         tree.rotation.z =
-            Math.sin(time * 1.2 + tree.position.x) *
+            Math.sin(
+                time * 1.2 +
+                tree.position.x
+            ) *
             0.025;
     }
 
-    for (const smoke of smokeParticles) {
-        smoke.position.y +=
-            smoke.userData.speed * 0.008;
-
-        smoke.position.x +=
-            Math.sin(time + smoke.position.y) *
-            0.002;
-
+    for (
+        const item of construction
+    ) {
         if (
-            smoke.position.y >
-            smoke.userData.baseY + 3
+            item.object.scale.y <
+            item.target
         ) {
-            smoke.position.y =
-                smoke.userData.baseY;
-        }
-    }
-
-    for (const construction of constructionObjects) {
-        if (
-            construction.object.scale.y <
-            construction.target
-        ) {
-            construction.object.scale.y +=
-                construction.speed * 0.016;
+            item.object.scale.y +=
+                item.speed;
 
             if (
-                construction.object.scale.y >
-                construction.target
+                item.object.scale.y >
+                item.target
             ) {
-                construction.object.scale.y =
-                    construction.target;
+                item.object.scale.y =
+                    item.target;
             }
         }
     }
 
     controls.update();
-    renderer.render(scene, camera);
+
+    renderer.render(
+        scene,
+        camera
+    );
 }
+
+setInterval(
+    () => {
+        const income =
+            population * 3 +
+            jobs * 2;
+
+        money +=
+            income;
+
+        updateStats();
+    },
+    1000
+);
+
+setInterval(
+    () => {
+        createEffectTiles();
+    },
+    500
+);
 
 window.addEventListener(
     "resize",
@@ -2687,20 +3951,6 @@ window.addEventListener(
         );
     }
 );
-
-setInterval(() => {
-    const income =
-        population * 3 +
-        jobs * 2;
-
-    money += income;
-
-    updateStats();
-}, 1000);
-
-setInterval(() => {
-    createEffectTiles();
-}, 500);
 
 updateStats();
 animate();
