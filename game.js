@@ -109,7 +109,6 @@ water.receiveShadow = true;
 scene.add(water);
 
 function hill(x, z, radius, height) {
-
     const mesh = new THREE.Mesh(
         new THREE.ConeGeometry(radius, height, 28),
         new THREE.MeshStandardMaterial({
@@ -133,7 +132,6 @@ hill(300, 100, 58, 42);
 const trees = [];
 
 function createTree(x, z, scale = 1) {
-
     const group = new THREE.Group();
 
     const trunk = new THREE.Mesh(
@@ -176,7 +174,6 @@ function createTree(x, z, scale = 1) {
 }
 
 for (let i = 0; i < 105; i++) {
-
     const x = (Math.random() - 0.5) * WORLD;
     const z = (Math.random() - 0.5) * WORLD;
 
@@ -232,6 +229,7 @@ const zones = new Map();
 const buildings = [];
 const parks = [];
 const services = [];
+const utilities = [];
 const coverageObjects = [];
 
 const city = {
@@ -412,7 +410,6 @@ function gridKey(gx, gz) {
 }
 
 function worldToGrid(x, z) {
-
     const gx = Math.floor((x + HALF) / TILE);
     const gz = Math.floor((z + HALF) / TILE);
 
@@ -434,7 +431,6 @@ function worldToGrid(x, z) {
 }
 
 function gridToWorld(gx, gz) {
-
     return {
         x: -HALF + gx * TILE + TILE / 2,
         z: -HALF + gz * TILE + TILE / 2
@@ -450,9 +446,7 @@ function isZone(gx, gz) {
 }
 
 function isOccupied(gx, gz) {
-
     return buildings.some(building => {
-
         return (
             gx >= building.gx &&
             gx < building.gx + building.w &&
@@ -463,11 +457,8 @@ function isOccupied(gx, gz) {
 }
 
 function hasRoadNearby(gx, gz, distance = 1) {
-
     for (let x = gx - distance; x <= gx + distance; x++) {
-
         for (let z = gz - distance; z <= gz + distance; z++) {
-
             if (isRoad(x, z)) {
                 return true;
             }
@@ -478,7 +469,6 @@ function hasRoadNearby(gx, gz, distance = 1) {
 }
 
 function roadConnections(gx, gz) {
-
     return {
         north: isRoad(gx, gz - 1),
         south: isRoad(gx, gz + 1),
@@ -488,7 +478,6 @@ function roadConnections(gx, gz) {
 }
 
 function createRoadTile(gx, gz, type = "basic") {
-
     const key = gridKey(gx, gz);
 
     if (roads.has(key)) {
@@ -556,7 +545,6 @@ function createRoadTile(gx, gz, type = "basic") {
 }
 
 function updateRoadVisuals(gx, gz) {
-
     const affected = [
         [gx, gz],
         [gx + 1, gz],
@@ -566,7 +554,6 @@ function updateRoadVisuals(gx, gz) {
     ];
 
     affected.forEach(([x, z]) => {
-
         const roadData = roads.get(gridKey(x, z));
 
         if (!roadData) {
@@ -575,9 +562,19 @@ function updateRoadVisuals(gx, gz) {
 
         const group = roadData.group;
 
+        const removable = [];
+
         group.children.forEach(child => {
             if (child.userData.roadVisual) {
-                group.remove(child);
+                removable.push(child);
+            }
+        });
+
+        removable.forEach(child => {
+            group.remove(child);
+            child.geometry.dispose();
+            if (child.material) {
+                child.material.dispose();
             }
         });
 
@@ -585,7 +582,6 @@ function updateRoadVisuals(gx, gz) {
         const c = roadConnections(x, z);
 
         if (data.level === 1) {
-
             const dirs = [
                 c.north,
                 c.south,
@@ -594,13 +590,11 @@ function updateRoadVisuals(gx, gz) {
             ];
 
             dirs.forEach((connected, index) => {
-
                 if (!connected) {
                     return;
                 }
 
                 const horizontal = index >= 2;
-
                 const length = TILE * 0.52;
 
                 const mesh = new THREE.Mesh(
@@ -643,7 +637,6 @@ function updateRoadVisuals(gx, gz) {
 }
 
 function upgradeRoad(gx, gz) {
-
     const data = roads.get(gridKey(gx, gz));
 
     if (!data) {
@@ -664,7 +657,6 @@ function upgradeRoad(gx, gz) {
     ];
 
     const next = nextTypes[data.level];
-
     const cost = roadTypes[next].cost;
 
     if (city.money < cost) {
@@ -673,8 +665,6 @@ function upgradeRoad(gx, gz) {
     }
 
     city.money -= cost;
-
-    const position = gridToWorld(gx, gz);
 
     scene.remove(data.group);
 
@@ -694,8 +684,6 @@ function upgradeRoad(gx, gz) {
         1
     );
 
-    newData.group.userData.upgrading = true;
-
     constructionObjects.push({
         object: newData.group,
         start: performance.now(),
@@ -713,10 +701,10 @@ function upgradeRoad(gx, gz) {
 }
 
 function createZoneTile(gx, gz, type) {
-
     const key = gridKey(gx, gz);
 
     if (zones.has(key)) {
+        showStatus("Tile already zoned");
         return;
     }
 
@@ -764,19 +752,14 @@ function createZoneTile(gx, gz, type) {
 }
 
 function findZoneArea(gx, gz, type) {
-
     const possible = [];
 
     for (let w = 2; w <= 5; w++) {
-
         for (let d = 2; d <= 5; d++) {
-
             let valid = true;
 
             for (let x = 0; x < w; x++) {
-
                 for (let z = 0; z < d; z++) {
-
                     const tx = gx + x;
                     const tz = gz + z;
 
@@ -823,11 +806,8 @@ function createBuilding(
     type,
     definition
 ) {
-
     for (let x = 0; x < definition.w; x++) {
-
         for (let z = 0; z < definition.d; z++) {
-
             if (
                 isRoad(gx + x, gz + z) ||
                 isOccupied(gx + x, gz + z)
@@ -891,7 +871,6 @@ function createBuilding(
     group.add(roof);
 
     if (definition.height >= 8) {
-
         const floors =
             Math.max(
                 2,
@@ -899,11 +878,10 @@ function createBuilding(
             );
 
         for (let i = 0; i < floors; i++) {
-
-            const windowRows = new THREE.Group();
+            const windowRows =
+                new THREE.Group();
 
             for (let side = 0; side < 2; side++) {
-
                 const window = new THREE.Mesh(
                     new THREE.BoxGeometry(
                         Math.max(
@@ -936,7 +914,6 @@ function createBuilding(
     }
 
     if (type === "industrial") {
-
         const chimney = new THREE.Mesh(
             new THREE.CylinderGeometry(
                 0.45,
@@ -1021,7 +998,6 @@ function createBuilding(
 }
 
 function attemptGrowth(gx, gz) {
-
     const zone = zones.get(
         gridKey(gx, gz)
     );
@@ -1067,14 +1043,15 @@ function attemptGrowth(gx, gz) {
 }
 
 function createPark(gx, gz, kind = "park") {
-
-    if (isRoad(gx, gz) || isOccupied(gx, gz)) {
+    if (
+        isRoad(gx, gz) ||
+        isOccupied(gx, gz)
+    ) {
         showStatus("That tile is occupied");
-        return;
+        return false;
     }
 
     const position = gridToWorld(gx, gz);
-
     const group = new THREE.Group();
 
     const base = new THREE.Mesh(
@@ -1095,7 +1072,6 @@ function createPark(gx, gz, kind = "park") {
     group.add(base);
 
     for (let i = 0; i < 4; i++) {
-
         const tree = new THREE.Mesh(
             new THREE.SphereGeometry(
                 0.75,
@@ -1119,7 +1095,6 @@ function createPark(gx, gz, kind = "park") {
     }
 
     if (kind === "playground") {
-
         const slide = new THREE.Mesh(
             new THREE.BoxGeometry(
                 0.8,
@@ -1156,8 +1131,6 @@ function createPark(gx, gz, kind = "park") {
         happiness: kind === "playground" ? 7 : 5
     });
 
-    showStatus("Park built");
-
     createCoverage(
         position.x + TILE * 0.5,
         position.z + TILE * 0.5,
@@ -1165,17 +1138,26 @@ function createPark(gx, gz, kind = "park") {
         0x54c96b,
         0.16
     );
+
+    showStatus(
+        kind === "playground"
+            ? "Playground built"
+            : "Park built"
+    );
+
+    return true;
 }
 
 function createService(gx, gz) {
-
-    if (isRoad(gx, gz) || isOccupied(gx, gz)) {
+    if (
+        isRoad(gx, gz) ||
+        isOccupied(gx, gz)
+    ) {
         showStatus("That tile is occupied");
-        return;
+        return false;
     }
 
     const position = gridToWorld(gx, gz);
-
     const group = new THREE.Group();
 
     const building = new THREE.Mesh(
@@ -1256,8 +1238,6 @@ function createService(gx, gz) {
         radius: 35
     });
 
-    showStatus("Service building built");
-
     createCoverage(
         position.x + TILE * 0.5,
         position.z + TILE * 0.5,
@@ -1265,6 +1245,144 @@ function createService(gx, gz) {
         0x4e91e8,
         0.14
     );
+
+    showStatus("Service building built");
+
+    return true;
+}
+
+function createUtility(gx, gz, type) {
+    if (
+        isRoad(gx, gz) ||
+        isOccupied(gx, gz)
+    ) {
+        showStatus("That tile is occupied");
+        return false;
+    }
+
+    const position = gridToWorld(gx, gz);
+    const group = new THREE.Group();
+
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(
+            TILE * 2 - 0.3,
+            1,
+            TILE * 2 - 0.3
+        ),
+        new THREE.MeshStandardMaterial({
+            color: type === "water"
+                ? 0x4c9bd1
+                : 0x777777,
+            roughness: 0.8
+        })
+    );
+
+    base.position.y = 0.5;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+
+    if (type === "water") {
+        const tank = new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                2.4,
+                2.4,
+                4,
+                20
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x9bb6c4,
+                roughness: 0.6
+            })
+        );
+
+        tank.position.y = 2.5;
+        tank.castShadow = true;
+        group.add(tank);
+
+        const cap = new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                2.5,
+                2.5,
+                0.25,
+                20
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x4c9bd1
+            })
+        );
+
+        cap.position.y = 4.55;
+        group.add(cap);
+    }
+
+    if (type === "power") {
+        const tower = new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                0.65,
+                0.95,
+                7,
+                8
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x686868
+            })
+        );
+
+        tower.position.y = 4;
+        tower.castShadow = true;
+        group.add(tower);
+
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(
+                2,
+                0.25,
+                8,
+                20
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0xbfc5c8
+            })
+        );
+
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 6;
+        group.add(ring);
+    }
+
+    group.position.set(
+        position.x + TILE * 0.5,
+        0,
+        position.z + TILE * 0.5
+    );
+
+    scene.add(group);
+
+    utilities.push({
+        gx,
+        gz,
+        group,
+        type,
+        radius: type === "water" ? 40 : 45
+    });
+
+    createCoverage(
+        position.x + TILE * 0.5,
+        position.z + TILE * 0.5,
+        type === "water" ? 40 : 45,
+        type === "water"
+            ? 0x4ba7df
+            : 0xf0c84b,
+        0.12
+    );
+
+    showStatus(
+        type === "water"
+            ? "Water system built"
+            : "Power plant built"
+    );
+
+    return true;
 }
 
 function createCoverage(
@@ -1274,7 +1392,6 @@ function createCoverage(
     color,
     opacity
 ) {
-
     const geometry = new THREE.CircleGeometry(
         radius,
         64
@@ -1301,23 +1418,30 @@ function createCoverage(
     );
 
     scene.add(mesh);
-
     coverageObjects.push(mesh);
 
     return mesh;
 }
 
 function clearCoverage() {
-
     coverageObjects.forEach(
-        object => scene.remove(object)
+        object => {
+            scene.remove(object);
+
+            if (object.geometry) {
+                object.geometry.dispose();
+            }
+
+            if (object.material) {
+                object.material.dispose();
+            }
+        }
     );
 
     coverageObjects.length = 0;
 }
 
 function showBuildingCoverage(building) {
-
     clearCoverage();
 
     const center = gridToWorld(
@@ -1326,7 +1450,6 @@ function showBuildingCoverage(building) {
     );
 
     if (building.type === "residential") {
-
         createCoverage(
             center.x,
             center.z,
@@ -1337,7 +1460,6 @@ function showBuildingCoverage(building) {
     }
 
     if (building.type === "commercial") {
-
         createCoverage(
             center.x,
             center.z,
@@ -1348,7 +1470,6 @@ function showBuildingCoverage(building) {
     }
 
     if (building.type === "industrial") {
-
         createCoverage(
             center.x,
             center.z,
@@ -1360,7 +1481,6 @@ function showBuildingCoverage(building) {
 }
 
 function getGroundPosition(event) {
-
     const rect =
         renderer.domElement.getBoundingClientRect();
 
@@ -1397,9 +1517,7 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 function updateHover(gridPosition) {
-
     if (!gridPosition) {
-
         hoverTile.visible = false;
         return;
     }
@@ -1412,9 +1530,7 @@ function updateHover(gridPosition) {
         gridPosition.z
     );
 
-    if (selectedTool === "road") {
-        hoverMaterial.color.set(0xffffff);
-    }
+    hoverMaterial.color.set(0xffffff);
 
     if (selectedTool === "residential") {
         hoverMaterial.color.set(0x65c878);
@@ -1436,14 +1552,28 @@ function updateHover(gridPosition) {
         hoverMaterial.color.set(0x4e91e8);
     }
 
+    if (selectedTool === "water") {
+        hoverMaterial.color.set(0x4ba7df);
+    }
+
+    if (selectedTool === "power") {
+        hoverMaterial.color.set(0xf0c84b);
+    }
+
     if (selectedTool === "upgrade") {
         hoverMaterial.color.set(0xf0b84d);
     }
 }
 
 function selectTool(tool) {
-
-    selectedTool = tool;
+    if (
+        tool === "water" ||
+        tool === "power"
+    ) {
+        selectedTool = tool;
+    } else {
+        selectedTool = tool;
+    }
 
     document
         .querySelectorAll(".build-card")
@@ -1463,6 +1593,8 @@ function selectTool(tool) {
         industrial: "Industrial zoning selected",
         park: "Park selected",
         service: "Services selected",
+        water: "Water system selected",
+        power: "Electricity selected",
         upgrade: "Road upgrade selected"
     };
 
@@ -1473,7 +1605,6 @@ function selectTool(tool) {
 }
 
 function cancelTool() {
-
     selectedTool = null;
     currentGrid = null;
     mouseDown = false;
@@ -1492,20 +1623,17 @@ function cancelTool() {
 }
 
 function placeTool(g) {
-
     if (!g) {
         return;
     }
 
     if (selectedTool === "road") {
-
         const key = gridKey(
             g.gx,
             g.gz
         );
 
         if (roads.has(key)) {
-
             upgradeRoad(
                 g.gx,
                 g.gz
@@ -1518,7 +1646,6 @@ function placeTool(g) {
             roadTypes.basic.cost;
 
         if (city.money < cost) {
-
             showStatus(
                 "Not enough money"
             );
@@ -1548,7 +1675,6 @@ function placeTool(g) {
         selectedTool === "commercial" ||
         selectedTool === "industrial"
     ) {
-
         const cost =
             selectedTool === "residential"
                 ? 100
@@ -1557,7 +1683,6 @@ function placeTool(g) {
                     : 300;
 
         if (city.money < cost) {
-
             showStatus(
                 "Not enough money"
             );
@@ -1565,12 +1690,17 @@ function placeTool(g) {
             return;
         }
 
-        if (
-            isRoad(g.gx, g.gz)
-        ) {
-
+        if (isRoad(g.gx, g.gz)) {
             showStatus(
                 "Roads cannot be zoned"
+            );
+
+            return;
+        }
+
+        if (zones.has(gridKey(g.gx, g.gz))) {
+            showStatus(
+                "Tile already zoned"
             );
 
             return;
@@ -1595,11 +1725,20 @@ function placeTool(g) {
     }
 
     if (selectedTool === "park") {
-
         if (city.money < 200) {
-
             showStatus(
                 "Not enough money"
+            );
+
+            return;
+        }
+
+        if (
+            isRoad(g.gx, g.gz) ||
+            isOccupied(g.gx, g.gz)
+        ) {
+            showStatus(
+                "That tile is occupied"
             );
 
             return;
@@ -1607,11 +1746,15 @@ function placeTool(g) {
 
         city.money -= 200;
 
-        createPark(
-            g.gx,
-            g.gz,
-            "park"
-        );
+        if (
+            !createPark(
+                g.gx,
+                g.gz,
+                "park"
+            )
+        ) {
+            city.money += 200;
+        }
 
         updateStats();
 
@@ -1619,9 +1762,7 @@ function placeTool(g) {
     }
 
     if (selectedTool === "service") {
-
         if (city.money < 400) {
-
             showStatus(
                 "Not enough money"
             );
@@ -1629,12 +1770,101 @@ function placeTool(g) {
             return;
         }
 
+        if (
+            isRoad(g.gx, g.gz) ||
+            isOccupied(g.gx, g.gz)
+        ) {
+            showStatus(
+                "That tile is occupied"
+            );
+
+            return;
+        }
+
         city.money -= 400;
 
-        createService(
-            g.gx,
-            g.gz
-        );
+        if (
+            !createService(
+                g.gx,
+                g.gz
+            )
+        ) {
+            city.money += 400;
+        }
+
+        updateStats();
+
+        return;
+    }
+
+    if (selectedTool === "water") {
+        if (city.money < 500) {
+            showStatus(
+                "Not enough money"
+            );
+
+            return;
+        }
+
+        if (
+            isRoad(g.gx, g.gz) ||
+            isOccupied(g.gx, g.gz)
+        ) {
+            showStatus(
+                "That tile is occupied"
+            );
+
+            return;
+        }
+
+        city.money -= 500;
+
+        if (
+            !createUtility(
+                g.gx,
+                g.gz,
+                "water"
+            )
+        ) {
+            city.money += 500;
+        }
+
+        updateStats();
+
+        return;
+    }
+
+    if (selectedTool === "power") {
+        if (city.money < 750) {
+            showStatus(
+                "Not enough money"
+            );
+
+            return;
+        }
+
+        if (
+            isRoad(g.gx, g.gz) ||
+            isOccupied(g.gx, g.gz)
+        ) {
+            showStatus(
+                "That tile is occupied"
+            );
+
+            return;
+        }
+
+        city.money -= 750;
+
+        if (
+            !createUtility(
+                g.gx,
+                g.gz,
+                "power"
+            )
+        ) {
+            city.money += 750;
+        }
 
         updateStats();
 
@@ -1642,7 +1872,6 @@ function placeTool(g) {
     }
 
     if (selectedTool === "upgrade") {
-
         upgradeRoad(
             g.gx,
             g.gz
@@ -1653,7 +1882,6 @@ function placeTool(g) {
 renderer.domElement.addEventListener(
     "pointermove",
     event => {
-
         currentGrid =
             getGroundPosition(event);
 
@@ -1671,7 +1899,6 @@ renderer.domElement.addEventListener(
 renderer.domElement.addEventListener(
     "pointerdown",
     event => {
-
         if (
             event.button !== 0 ||
             !selectedTool
@@ -1695,7 +1922,6 @@ renderer.domElement.addEventListener(
 renderer.domElement.addEventListener(
     "pointerup",
     event => {
-
         if (event.button === 0) {
             mouseDown = false;
         }
@@ -1720,7 +1946,6 @@ renderer.domElement.addEventListener(
 document.addEventListener(
     "keydown",
     event => {
-
         if (event.key === "Escape") {
             cancelTool();
         }
@@ -1729,15 +1954,16 @@ document.addEventListener(
             event.key.toLowerCase() === "u" &&
             currentGrid
         ) {
-
             selectTool("upgrade");
         }
     }
 );
 
-const topbar = document.createElement("div");
+const topbar =
+    document.createElement("div");
 
-topbar.className = "city-topbar";
+topbar.className =
+    "city-topbar";
 
 topbar.innerHTML = `
 <div class="city-title">
@@ -1784,15 +2010,19 @@ game.appendChild(topbar);
 const buildButton =
     document.createElement("button");
 
-buildButton.className = "build-main";
-buildButton.textContent = "🏗️ BUILD";
+buildButton.className =
+    "build-main";
+
+buildButton.textContent =
+    "🏗️ BUILD";
 
 game.appendChild(buildButton);
 
 const menu =
     document.createElement("div");
 
-menu.className = "build-menu";
+menu.className =
+    "build-menu";
 
 menu.innerHTML = `
 <div class="menu-header">
@@ -1875,12 +2105,12 @@ game.appendChild(menu);
 const status =
     document.createElement("div");
 
-status.className = "build-status";
+status.className =
+    "build-status";
 
 game.appendChild(status);
 
 function showStatus(message) {
-
     status.textContent = message;
     status.classList.add("show");
 
@@ -1897,19 +2127,15 @@ function showStatus(message) {
 buildButton.addEventListener(
     "click",
     () => {
-
         const open =
             !menu.classList.contains("open");
 
         if (open) {
-
             menu.classList.add("open");
             buildButton.classList.add("active");
             buildButton.textContent =
                 "✕ CLOSE BUILD";
-
         } else {
-
             menu.classList.remove("open");
             buildButton.classList.remove("active");
             buildButton.textContent =
@@ -1923,7 +2149,6 @@ document
     .addEventListener(
         "click",
         () => {
-
             menu.classList.remove("open");
             buildButton.classList.remove("active");
             buildButton.textContent =
@@ -1934,11 +2159,9 @@ document
 document
     .querySelectorAll(".build-card")
     .forEach(card => {
-
         card.addEventListener(
             "click",
             () => {
-
                 selectTool(
                     card.dataset.build
                 );
@@ -1952,9 +2175,7 @@ document
     });
 
 function updateStats() {
-
-    let population =
-        1240;
+    let population = 1240;
 
     buildings.forEach(
         building => {
@@ -1972,9 +2193,13 @@ function updateStats() {
     const serviceBonus =
         services.length * 2;
 
+    const utilityBonus =
+        utilities.length * 1;
+
     const industrialPenalty =
         buildings.filter(
-            b => b.type === "industrial"
+            b =>
+                b.type === "industrial"
         ).length * 1.5;
 
     city.happiness =
@@ -1984,7 +2209,8 @@ function updateStats() {
                 100,
                 72 +
                 parkBonus +
-                serviceBonus -
+                serviceBonus +
+                utilityBonus -
                 industrialPenalty
             )
         );
@@ -1994,7 +2220,9 @@ function updateStats() {
     roads.forEach(
         road => {
             roadCapacity +=
-                roadTypes[road.type].capacity;
+                roadTypes[
+                    road.type
+                ].capacity;
         }
     );
 
@@ -2009,33 +2237,43 @@ function updateStats() {
                 Math.min(
                     100,
                     Math.round(
-                        (roadDemand /
-                            roadCapacity) *
-                            100
+                        (
+                            roadDemand /
+                            roadCapacity
+                        ) * 100
                     )
                 )
             );
 
-    let income = 0;
+    let totalIncome = 0;
 
     buildings.forEach(
         building => {
-
-            if (building.type === "commercial") {
-                income += 25;
+            if (
+                building.type ===
+                "commercial"
+            ) {
+                totalIncome += 25;
             }
 
-            if (building.type === "residential") {
-                income += 8;
+            if (
+                building.type ===
+                "residential"
+            ) {
+                totalIncome += 8;
             }
 
-            if (building.type === "industrial") {
-                income += 35;
+            if (
+                building.type ===
+                "industrial"
+            ) {
+                totalIncome += 35;
             }
         }
     );
 
-    city.income = income;
+    city.income =
+        totalIncome;
 
     const pop =
         document.getElementById(
@@ -2057,7 +2295,7 @@ function updateStats() {
             "traffic"
         );
 
-    const income =
+    const incomeElement =
         document.getElementById(
             "income"
         );
@@ -2075,8 +2313,9 @@ function updateStats() {
     if (money) {
         money.textContent =
             "$" +
-            Math.floor(city.money)
-                .toLocaleString();
+            Math.floor(
+                city.money
+            ).toLocaleString();
     }
 
     if (happiness) {
@@ -2093,11 +2332,10 @@ function updateStats() {
             ) + "%";
     }
 
-    if (income) {
-        income.textContent =
+    if (incomeElement) {
+        incomeElement.textContent =
             "$" +
-            city.income
-                .toLocaleString();
+            city.income.toLocaleString();
     }
 
     if (day) {
@@ -2107,10 +2345,8 @@ function updateStats() {
 }
 
 function growCity() {
-
     zones.forEach(
         zone => {
-
             attemptGrowth(
                 zone.gx,
                 zone.gz
@@ -2132,11 +2368,9 @@ setInterval(
 );
 
 function animateConstruction(time) {
-
     constructionObjects =
         constructionObjects.filter(
             item => {
-
                 const progress =
                     Math.min(
                         1,
@@ -2152,9 +2386,9 @@ function animateConstruction(time) {
                     );
 
                 if (
-                    item.mode === "building"
+                    item.mode ===
+                    "building"
                 ) {
-
                     item.object.scale.set(
                         eased,
                         eased,
@@ -2163,16 +2397,17 @@ function animateConstruction(time) {
                 }
 
                 if (
-                    item.mode === "road"
+                    item.mode ===
+                    "road"
                 ) {
-
                     item.object.scale.x =
                         0.2 +
                         eased * 0.8;
                 }
 
-                if (progress >= 1) {
-
+                if (
+                    progress >= 1
+                ) {
                     item.object.scale.set(
                         1,
                         1,
@@ -2191,7 +2426,6 @@ const clock =
     new THREE.Clock();
 
 function animate() {
-
     requestAnimationFrame(
         animate
     );
@@ -2208,7 +2442,6 @@ function animate() {
 
     trees.forEach(
         (tree, index) => {
-
             tree.rotation.z =
                 Math.sin(
                     elapsed * 0.7 +
@@ -2219,16 +2452,13 @@ function animate() {
 
     buildings.forEach(
         building => {
-
             building.group
                 .children
                 .forEach(
                     child => {
-
                         if (
                             child.userData.smoke
                         ) {
-
                             child.position.y +=
                                 0.004;
 
@@ -2240,7 +2470,6 @@ function animate() {
                                 child.position.y >
                                 building.height * 1.8
                             ) {
-
                                 child.position.y =
                                     building.height * 1.4;
 
@@ -2270,7 +2499,6 @@ animate();
 window.addEventListener(
     "resize",
     () => {
-
         camera.aspect =
             window.innerWidth /
             window.innerHeight;
