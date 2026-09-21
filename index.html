@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cities - Flashcard.com</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:Arial,sans-serif;background:#101418;color:#fff}
+#game{position:fixed;inset:0}
+#ui{position:fixed;inset:0;pointer-events:none}
+#top{
+position:absolute;
+top:0;
+left:0;
+right:0;
+height:76px;
+background:rgba(10,13,17,.94);
+border-bottom:2px solid #333;
+display:flex;
+align-items:center;
+padding:10px 18px;
+gap:28px;
+pointer-events:auto;
+z-index:5
+}
+#title{font-size:25px;font-weight:800;letter-spacing:1px;margin-right:10px}
+.stat{min-width:120px}
+.stat small{display:block;color:#aaa;font-size:11px;text-transform:uppercase}
+.stat b{font-size:18px}
+#money{color:#72d572}
+#green{color:#62e68c}
+#keys{color:#ffd34d}
+#cityTime{margin-left:auto;text-align:right}
+#cityTime b{font-size:18px}
+#tools{
+position:absolute;
+left:15px;
+top:92px;
+width:190px;
+background:rgba(12,15,19,.94);
+border:2px solid #333;
+border-radius:8px;
+padding:10px;
+pointer-events:auto;
+z-index:5
+}
+.section{
+font-size:11px;
+font-weight:bold;
+color:#aaa;
+margin:7px 4px
+}
+.tool{
+width:100%;
+border:1px solid #444;
+background:#20262c;
+color:white;
+padding:10px 8px;
+margin:4px 0;
+border-radius:5px;
+cursor:pointer;
+font-weight:bold;
+text-align:left
+}
+.tool:hover{background:#303840}
+.tool.active{border-color:#7bdcff;background:#263b45}
+#bottom{
+position:absolute;
+left:50%;
+bottom:15px;
+transform:translateX(-50%);
+background:rgba(10,13,17,.95);
+border:2px solid #333;
+border-radius:8px;
+padding:9px 14px;
+pointer-events:auto;
+z-index:5;
+min-width:420px;
+text-align:center
+}
+#message{font-size:13px;color:#ddd}
+#buildingInfo{
+position:absolute;
+right:15px;
+top:92px;
+width:245px;
+background:rgba(12,15,19,.95);
+border:2px solid #333;
+border-radius:8px;
+padding:14px;
+display:none;
+pointer-events:auto;
+z-index:5
+}
+#buildingInfo h2{font-size:18px;margin:0 0 10px}
+.infoRow{display:flex;justify-content:space-between;margin:7px 0;color:#bbb}
+.infoRow b{color:#fff}
+#upgrade{
+width:100%;
+margin-top:10px;
+padding:10px;
+border:0;
+border-radius:5px;
+background:#4c9f5b;
+color:#fff;
+font-weight:bold;
+cursor:pointer
+}
+#upgrade:hover{background:#5dbb6c}
+#cancel{
+width:100%;
+margin-top:6px;
+padding:8px;
+border:1px solid #555;
+background:#242a30;
+color:#fff;
+border-radius:5px;
+cursor:pointer
+}
+#hint{
+position:absolute;
+bottom:62px;
+left:50%;
+transform:translateX(-50%);
+color:#aaa;
+font-size:12px;
+pointer-events:none;
+white-space:nowrap
+}
+#notification{
+position:absolute;
+top:90px;
+left:50%;
+transform:translateX(-50%);
+background:rgba(20,25,30,.96);
+border:1px solid #555;
+border-radius:6px;
+padding:10px 18px;
+display:none;
+z-index:10;
+font-weight:bold
+}
+canvas{display:block}
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="ui">
+<div id="top">
+<div id="title">CITIES</div>
+
+<div class="stat">
+<small>Money</small>
+<b id="money">$2,000</b>
+</div>
+
+<div class="stat">
+<small>Green Bills</small>
+<b id="green">$0</b>
+</div>
+
+<div class="stat">
+<small>Keys</small>
+<b id="keys">0</b>
+</div>
+
+<div class="stat">
+<small>Residents</small>
+<b id="population">0</b>
+</div>
+
+<div class="stat">
+<small>Tax / Hour</small>
+<b id="tax">$0</b>
+</div>
+
+<div id="cityTime">
+<small>City Time</small>
+<b id="clock">Day 1 — 08:00</b>
+</div>
+</div>
+
+<div id="tools">
+<div class="section">BUILD</div>
+<button class="tool" data-type="road">🛣 ROAD — $20</button>
+<button class="tool" data-type="house">🏠 HOUSE — $150</button>
+<button class="tool" data-type="apartment">🏢 APARTMENT — $600</button>
+<button class="tool" data-type="shop">🏪 SHOP — $350</button>
+<button class="tool" data-type="park">🌳 PARK — $250</button>
+
+<div class="section">CITY</div>
+<button class="tool" data-type="power">⚡ POWER — $700</button>
+<button class="tool" data-type="water">🚰 WATER — $700</button>
+<button class="tool" data-type="factory">🏭 FACTORY — $900</button>
+
+<div class="section">CONTROLS</div>
+<button class="tool" id="save">💾 SAVE CITY</button>
+<button class="tool" id="reset">↻ NEW CITY</button>
+</div>
+
+<div id="buildingInfo">
+<h2 id="infoName">House</h2>
+<div class="infoRow"><span>Level</span><b id="infoLevel">1</b></div>
+<div class="infoRow"><span>Residents</span><b id="infoResidents">0</b></div>
+<div class="infoRow"><span>Tax / hour</span><b id="infoTax">$0</b></div>
+<div class="infoRow"><span>Upgrade cost</span><b id="infoUpgrade">$0</b></div>
+<button id="upgrade">UPGRADE</button>
+<button id="cancel">CLOSE</button>
+</div>
+
+<div id="hint">Drag to move the city • Scroll to zoom • Click a building to inspect it</div>
+
+<div id="bottom">
+<div id="message">Select a building from the left, then click the map.</div>
+</div>
+
+<div id="notification"></div>
+</div>
+
+<script>
+const WORLD=1000;
+const TILE=20;
+const SAVE_KEY="citiesFlashcardCity";
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x9bb7c4);
+scene.fog=new THREE.Fog(0x9bb7c4,500,1200);
+
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,2000);
+camera.position.set(0,420,420);
+camera.lookAt(0,0,0);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+document.getElementById("game").appendChild(renderer.domElement);
+
+const ambient=new THREE.HemisphereLight(0xffffff,0x667777,1.5);
+scene.add(ambient);
+
+const sun=new THREE.DirectionalLight(0xffffff,1.5);
+sun.position.set(200,500,200);
+sun.castShadow=true;
+scene.add(sun);
+
+const ground=new THREE.Mesh(
+new THREE.PlaneGeometry(WORLD,WORLD),
+new THREE.MeshLambertMaterial({color:0x668c52})
+);
+ground.rotation.x=-Math.PI/2;
+ground.receiveShadow=true;
+scene.add(ground);
+
+const grid=new THREE.GridHelper(WORLD,WORLD/TILE,0x557744,0x557744);
+grid.position.y=.2;
+scene.add(grid);
+
+const game={
+money:2000,
+greenBills:0,
+keys:0,
+day:1,
+hour:8,
+minute:0,
+buildings:[],
+selected:null
+};
+
+let selectedTool=null;
+let dragging=false;
+let lastX=0;
+let lastY=0;
+let cameraTarget=new THREE.Vector3(0,0,0);
+let cameraDistance=420;
+
+const buildingObjects=[];
+const raycaster=new THREE.Raycaster();
+const mouse=new THREE.Vector2();
+
+const types={
+house:{
+name:"House",
+cost:150,
+baseResidents:4,
+baseTax:20,
+color:0xd9c28c,
+height:25,
+upgradeFactor:1.65
+},
+apartment:{
+name:"Apartment Complex",
+cost:600,
+baseResidents:20,
+baseTax:110,
+color:0x8c9eb5,
+height:55,
+upgradeFactor:1.75
+},
+shop:{
+name:"Shop",
+cost:350,
+baseResidents:0,
+baseTax:45,
+color:0xd67b55,
+height:30,
+upgradeFactor:1.7
+},
+park:{
+name:"Park",
+cost:250,
+baseResidents:0,
+baseTax:0,
+color:0x3e8b45,
+height:4,
+upgradeFactor:1.8
+},
+power:{
+name:"Power Plant",
+cost:700,
+baseResidents:0,
+baseTax:30,
+color:0xc56d53,
+height:45,
+upgradeFactor:1.8
+},
+water:{
+name:"Water Facility",
+cost:700,
+baseResidents:0,
+baseTax:25,
+color:0x4c9ec2,
+height:35,
+upgradeFactor:1.8
+},
+factory:{
+name:"Factory",
+cost:900,
+baseResidents:0,
+baseTax:80,
+color:0x777777,
+height:45,
+upgradeFactor:1.9
+},
+road:{
+name:"Road",
+cost:20,
+baseResidents:0,
+baseTax:0,
+color:0x343434,
+height:1,
+upgradeFactor:1
+}
+};
+
+function formatMoney(n){
+return "$"+Math.floor(n).toLocaleString();
+}
+
+function notify(text){
+const el=document.getElementById("notification");
+el.textContent=text;
+el.style.display="block";
+clearTimeout(notify.timer);
+notify.timer=setTimeout(()=>el.style.display="none",2200);
+}
+
+function makeBuildingObject(data){
+const t=types[data.type];
+const group=new THREE.Group();
+
+if(data.type==="road"){
+const road=new THREE.Mesh(
+new THREE.BoxGeometry(TILE*.95,1,TILE*.95),
+new THREE.MeshLambertMaterial({color:t.color})
+);
+road.position.y=.5;
+road.receiveShadow=true;
+group.add(road);
+}else{
+const width=data.type==="apartment"?17:data.type==="factory"?18:16;
+const depth=data.type==="apartment"?17:data.type==="factory"?18:16;
+const height=t.height*(1+(data.level-1)*.16);
+
+const body=new THREE.Mesh(
+new THREE.BoxGeometry(width,height,depth),
+new THREE.MeshLambertMaterial({color:t.color})
+);
+body.position.y=height/2;
+body.castShadow=true;
+body.receiveShadow=true;
+group.add(body);
+
+if(data.type==="house"||data.type==="apartment"){
+const roof=new THREE.Mesh(
+new THREE.ConeGeometry(Math.max(width,depth)*.68,Math.min(14,7+data.level*1.2),4),
+new THREE.MeshLambertMaterial({color:0x553f35})
+);
+roof.position.y=height+6;
+roof.rotation.y=Math.PI/4;
+roof.castShadow=true;
+group.add(roof);
+
+const windowMat=new THREE.MeshLambertMaterial({color:0xdde9ed});
+const rows=Math.min(4,data.level+1);
+for(let r=0;r<rows;r++){
+for(let c=0;c<2;c++){
+const w=new THREE.Mesh(
+new THREE.BoxGeometry(2.8,3.2,.35),
+windowMat
+);
+w.position.set((c?4:-4),7+r*7,depth/2+.3);
+group.add(w);
+}
+}
+}
+
+if(data.type==="shop"){
+const sign=new THREE.Mesh(
+new THREE.BoxGeometry(10,4,.5),
+new THREE.MeshLambertMaterial({color:0xffd84d})
+);
+sign.position.set(0,height-7,depth/2+.4);
+group.add(sign);
+}
+
+if(data.type==="factory"){
+const chimney=new THREE.Mesh(
+new THREE.CylinderGeometry(2,2,18,10),
+new THREE.MeshLambertMaterial({color:0x444444})
+);
+chimney.position.set(5,height+8,3);
+group.add(chimney);
+}
+
+if(data.type==="power"){
+const tower=new THREE.Mesh(
+new THREE.CylinderGeometry(7,7,12,6),
+new THREE.MeshLambertMaterial({color:0xeeeeee})
+);
+tower.position.y=height+5;
+group.add(tower);
+}
+
+if(data.type==="water"){
+const tank=new THREE.Mesh(
+new THREE.CylinderGeometry(6,6,10,16),
+new THREE.MeshLambertMaterial({color:0x9edff2})
+);
+tank.position.y=height+6;
+group.add(tank);
+}
+
+if(data.type==="park"){
+for(let i=0;i<5;i++){
+const trunk=new THREE.Mesh(
+new THREE.CylinderGeometry(1.2,1.5,5,8),
+new THREE.MeshLambertMaterial({color:0x6b452c})
+);
+trunk.position.set((i-2)*5,3,(i%2)*5-3);
+group.add(trunk);
+
+const leaves=new THREE.Mesh(
+new THREE.SphereGeometry(4.5,8,8),
+new THREE.MeshLambertMaterial({color:0x2f7437})
+);
+leaves.position.set((i-2)*5,8,(i%2)*5-3);
+group.add(leaves);
+}
+}
+
+group.position.set(data.x,0,data.z);
+group.userData.building=data;
+scene.add(group);
+buildingObjects.push(group);
+return group;
+}
+
+function residentsOf(data){
+if(!types[data.type].baseResidents)return 0;
+return Math.floor(types[data.type].baseResidents*Math.pow(1.55,data.level-1));
+}
+
+function taxOf(data){
+return Math.floor(types[data.type].baseTax*Math.pow(1.7,data.level-1));
+}
+
+function upgradeCost(data){
+return Math.floor(types[data.type].cost*Math.pow(1.8,data.level));
+}
+
+function rebuild(){
+for(const o of buildingObjects)scene.remove(o);
+buildingObjects.length=0;
+for(const b of game.buildings)makeBuildingObject(b);
+}
+
+function updateUI(){
+document.getElementById("money").textContent=formatMoney(game.money);
+document.getElementById("green").textContent=game.greenBills.toLocaleString();
+document.getElementById("keys").textContent=game.keys.toLocaleString();
+
+let population=0;
+let tax=0;
+
+for(const b of game.buildings){
+population+=residentsOf(b);
+tax+=taxOf(b);
+}
+
+document.getElementById("population").textContent=population.toLocaleString();
+document.getElementById("tax").textContent=formatMoney(tax);
+
+const hh=String(game.hour).padStart(2,"0");
+const mm=String(game.minute).padStart(2,"0");
+document.getElementById("clock").textContent="Day "+game.day+" — "+hh+":"+mm;
+
+if(game.selected)showInfo(game.selected);
+}
+
+function saveGame(){
+localStorage.setItem(SAVE_KEY,JSON.stringify({
+money:game.money,
+greenBills:game.greenBills,
+keys:game.keys,
+day:game.day,
+hour:game.hour,
+minute:game.minute,
+buildings:game.buildings
+}));
+notify("CITY SAVED");
+}
+
+function loadGame(){
+const raw=localStorage.getItem(SAVE_KEY);
+if(!raw)return;
+try{
+const s=JSON.parse(raw);
+game.money=Number(s.money)||2000;
+game.greenBills=Number(s.greenBills)||0;
+game.keys=Number(s.keys)||0;
+game.day=Number(s.day)||1;
+game.hour=Number(s.hour)||8;
+game.minute=Number(s.minute)||0;
+game.buildings=Array.isArray(s.buildings)?s.buildings:[];
+rebuild();
+}catch(e){}
+}
+
+function newGame(){
+if(!confirm("Start a new city? This will erase your saved city."))return;
+game.money=2000;
+game.greenBills=0;
+game.keys=0;
+game.day=1;
+game.hour=8;
+game.minute=0;
+game.buildings=[];
+game.selected=null;
+selectedTool=null;
+document.querySelectorAll(".tool").forEach(x=>x.classList.remove("active"));
+document.getElementById("buildingInfo").style.display="none";
+rebuild();
+saveGame();
+notify("NEW CITY CREATED");
+updateUI();
+}
+
+function showInfo(b){
+document.getElementById("buildingInfo").style.display="block";
+document.getElementById("infoName").textContent=types[b.type].name;
+document.getElementById("infoLevel").textContent=b.level;
+document.getElementById("infoResidents").textContent=residentsOf(b).toLocaleString();
+document.getElementById("infoTax").textContent=formatMoney(taxOf(b));
+document.getElementById("infoUpgrade").textContent=formatMoney(upgradeCost(b));
+}
+
+function canBuild(type){
+return game.money>=types[type].cost;
+}
+
+function place(type,x,z){
+if(!types[type])return;
+
+const gx=Math.round(x/TILE)*TILE;
+const gz=Math.round(z/TILE)*TILE;
+
+if(Math.abs(gx)>WORLD/2-TILE||Math.abs(gz)>WORLD/2-TILE){
+notify("OUTSIDE CITY");
+return;
+}
+
+const occupied=game.buildings.some(b=>Math.abs(b.x-gx)<TILE*.8&&Math.abs(b.z-gz)<TILE*.8);
+
+if(occupied){
+notify("THAT SPACE IS OCCUPIED");
+return;
+}
+
+if(!canBuild(type)){
+notify("NOT ENOUGH MONEY");
+return;
+}
+
+game.money-=types[type].cost;
+
+const b={
+id:Date.now()+Math.random(),
+type,
+x:gx,
+z:gz,
+level:1
+};
+
+game.buildings.push(b);
+rebuild();
+game.selected=b;
+selectedTool=null;
+document.querySelectorAll(".tool").forEach(x=>x.classList.remove("active"));
+showInfo(b);
+updateUI();
+saveGame();
+}
+
+function upgradeSelected(){
+const b=game.selected;
+if(!b)return;
+
+if(b.type==="road"){
+notify("ROADS CANNOT BE UPGRADED");
+return;
+}
+
+const cost=upgradeCost(b);
+
+if(game.money<cost){
+notify("NOT ENOUGH MONEY");
+return;
+}
+
+game.money-=cost;
+b.level++;
+rebuild();
+game.selected=b;
+updateUI();
+saveGame();
+notify(types[b.type].name+" UPGRADED TO LEVEL "+b.level);
+}
+
+document.querySelectorAll(".tool[data-type]").forEach(btn=>{
+btn.addEventListener("click",()=>{
+selectedTool=btn.dataset.type;
+document.querySelectorAll(".tool[data-type]").forEach(x=>x.classList.remove("active"));
+btn.classList.add("active");
+document.getElementById("buildingInfo").style.display="none";
+document.getElementById("message").textContent="Click the map to place "+types[selectedTool].name+".";
+});
+});
+
+document.getElementById("save").addEventListener("click",saveGame);
+document.getElementById("reset").addEventListener("click",newGame);
+document.getElementById("upgrade").addEventListener("click",upgradeSelected);
+
+document.getElementById("cancel").addEventListener("click",()=>{
+game.selected=null;
+document.getElementById("buildingInfo").style.display="none";
+});
+
+renderer.domElement.addEventListener("pointerdown",e=>{
+dragging=true;
+lastX=e.clientX;
+lastY=e.clientY;
+renderer.domElement.setPointerCapture(e.pointerId);
+});
+
+renderer.domElement.addEventListener("pointermove",e=>{
+if(!dragging)return;
+
+const dx=e.clientX-lastX;
+const dy=e.clientY-lastY;
+
+cameraTarget.x-=dx*cameraDistance/700;
+cameraTarget.z+=dy*cameraDistance/700;
+
+cameraTarget.x=Math.max(-WORLD/2+100,Math.min(WORLD/2-100,cameraTarget.x));
+cameraTarget.z=Math.max(-WORLD/2+100,Math.min(WORLD/2-100,cameraTarget.z));
+
+lastX=e.clientX;
+lastY=e.clientY;
+});
+
+renderer.domElement.addEventListener("pointerup",e=>{
+dragging=false;
+
+const rect=renderer.domElement.getBoundingClientRect();
+
+mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+
+raycaster.setFromCamera(mouse,camera);
+
+if(selectedTool){
+const hit=raycaster.intersectObject(ground);
+
+if(hit.length){
+place(selectedTool,hit[0].point.x,hit[0].point.z);
+}
+}else{
+const hits=raycaster.intersectObjects(buildingObjects,true);
+
+if(hits.length){
+let obj=hits[0].object;
+while(obj.parent&&!obj.userData.building)obj=obj.parent;
+
+if(obj.userData.building){
+game.selected=obj.userData.building;
+showInfo(game.selected);
+}
+}
+}
+});
+
+renderer.domElement.addEventListener("wheel",e=>{
+e.preventDefault();
+cameraDistance+=e.deltaY*.35;
+cameraDistance=Math.max(150,Math.min(800,cameraDistance));
+},{passive:false});
+
+window.addEventListener("keydown",e=>{
+if(e.key.toLowerCase()==="r"&&e.repeat===false){
+if(window.location.pathname.includes("Cities-Flashcard.com")){
+window.location.href="index.html";
+}
+}
+});
+
+function gameClock(){
+game.minute+=10;
+
+if(game.minute>=60){
+game.minute=0;
+game.hour++;
+
+if(game.hour>=24){
+game.hour=0;
+game.day++;
+}
+}
+
+if(game.minute===0){
+let tax=0;
+
+for(const b of game.buildings)tax+=taxOf(b);
+
+if(tax>0){
+game.money+=tax;
+notify("TAX COLLECTION +"+formatMoney(tax));
+saveGame();
+}
+}
+
+updateUI();
+}
+
+function animate(){
+requestAnimationFrame(animate);
+
+const target=new THREE.Vector3(
+cameraTarget.x,
+0,
+cameraTarget.z
+);
+
+camera.position.x=target.x;
+camera.position.z=target.z+cameraDistance;
+camera.position.y=cameraDistance*.82;
+camera.lookAt(target);
+
+renderer.render(scene,camera);
+}
+
+window.addEventListener("resize",()=>{
+camera.aspect=innerWidth/innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(innerWidth,innerHeight);
+});
+
+loadGame();
+updateUI();
+animate();
+setInterval(gameClock,1000);
+setInterval(saveGame,30000);
+</script>
+</body>
+</html>
