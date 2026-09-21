@@ -6,7 +6,7 @@ const game = document.getElementById("game");
 const scene = new THREE.Scene();
 
 scene.background = new THREE.Color(0x9ed5f0);
-scene.fog = new THREE.Fog(0x9ed5f0, 180, 650);
+scene.fog = new THREE.Fog(0x9ed5f0,180,650);
 
 const camera = new THREE.PerspectiveCamera(
     55,
@@ -15,34 +15,44 @@ const camera = new THREE.PerspectiveCamera(
     1200
 );
 
-camera.position.set(120, 110, 150);
+camera.position.set(120,110,150);
 
 const renderer = new THREE.WebGLRenderer({
-    antialias: true
+    antialias:true
 });
 
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio,2)
+);
+
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
 
 game.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
 
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
+controls.enableDamping=true;
+controls.dampingFactor=.08;
 
-controls.minDistance = 35;
-controls.maxDistance = 400;
+controls.minDistance=35;
+controls.maxDistance=400;
 
-controls.maxPolarAngle = Math.PI / 2.15;
-controls.minPolarAngle = 0.25;
+controls.maxPolarAngle=Math.PI/2.15;
+controls.minPolarAngle=.25;
 
-controls.target.set(0, 0, 0);
+controls.target.set(0,0,0);
 
-const ambientLight = new THREE.HemisphereLight(
+const ambientLight=new THREE.HemisphereLight(
     0xdff4ff,
     0x65734f,
     2.2
@@ -50,529 +60,651 @@ const ambientLight = new THREE.HemisphereLight(
 
 scene.add(ambientLight);
 
-const sun = new THREE.DirectionalLight(
+const sun=new THREE.DirectionalLight(
     0xffffff,
     3.5
 );
 
-sun.position.set(120, 220, 80);
-sun.castShadow = true;
+sun.position.set(120,220,80);
+sun.castShadow=true;
 
-sun.shadow.mapSize.width = 2048;
-sun.shadow.mapSize.height = 2048;
+sun.shadow.mapSize.width=2048;
+sun.shadow.mapSize.height=2048;
 
-sun.shadow.camera.left = -250;
-sun.shadow.camera.right = 250;
-sun.shadow.camera.top = 250;
-sun.shadow.camera.bottom = -250;
+sun.shadow.camera.left=-250;
+sun.shadow.camera.right=250;
+sun.shadow.camera.top=250;
+sun.shadow.camera.bottom=-250;
 
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 600;
+sun.shadow.camera.near=1;
+sun.shadow.camera.far=600;
 
 scene.add(sun);
 
-const groundGeometry = new THREE.PlaneGeometry(
+const groundGeometry=new THREE.PlaneGeometry(
     700,
     700,
     80,
     80
 );
 
-const groundMaterial = new THREE.MeshStandardMaterial({
-    color: 0x6f9d55,
-    roughness: 1
+const groundMaterial=new THREE.MeshStandardMaterial({
+    color:0x6f9d55,
+    roughness:1
 });
 
-const ground = new THREE.Mesh(
+const ground=new THREE.Mesh(
     groundGeometry,
     groundMaterial
 );
 
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
+ground.rotation.x=-Math.PI/2;
+ground.receiveShadow=true;
 
 scene.add(ground);
 
-const waterGeometry = new THREE.PlaneGeometry(
+const waterGeometry=new THREE.PlaneGeometry(
     230,
     150
 );
 
-const waterMaterial = new THREE.MeshStandardMaterial({
-    color: 0x4fa7c8,
-    roughness: 0.25,
-    metalness: 0.05
+const waterMaterial=new THREE.MeshStandardMaterial({
+    color:0x4fa7c8,
+    roughness:.25,
+    metalness:.05
 });
 
-const water = new THREE.Mesh(
+const water=new THREE.Mesh(
     waterGeometry,
     waterMaterial
 );
 
-water.rotation.x = -Math.PI / 2;
-water.position.set(-185, 0.25, -170);
-water.receiveShadow = true;
+water.rotation.x=-Math.PI/2;
+water.position.set(-185,.25,-170);
+water.receiveShadow=true;
 
 scene.add(water);
 
-function createHill(x, z, size, height) {
+function createHill(x,z,size,height){
 
-    const geometry = new THREE.ConeGeometry(
+    const geometry=new THREE.ConeGeometry(
         size,
         height,
         24
     );
 
-    const material = new THREE.MeshStandardMaterial({
-        color: 0x668d4e,
-        roughness: 1
+    const material=new THREE.MeshStandardMaterial({
+        color:0x668d4e,
+        roughness:1
     });
 
-    const hill = new THREE.Mesh(
+    const hill=new THREE.Mesh(
         geometry,
         material
     );
 
-    hill.position.set(x, height / 2, z);
-
-    hill.castShadow = true;
-    hill.receiveShadow = true;
+    hill.position.set(x,height/2,z);
+    hill.castShadow=true;
+    hill.receiveShadow=true;
 
     scene.add(hill);
 }
 
-createHill(-250, -20, 65, 45);
-createHill(-180, 80, 50, 32);
-createHill(250, -170, 75, 55);
-createHill(300, 80, 55, 40);
+createHill(-250,-20,65,45);
+createHill(-180,80,50,32);
+createHill(250,-170,75,55);
+createHill(300,80,55,40);
 
-function createTree(x, z, scale = 1) {
+function createTree(x,z,scale=1){
 
-    const group = new THREE.Group();
+    const group=new THREE.Group();
 
-    const trunkGeometry = new THREE.CylinderGeometry(
-        0.8 * scale,
-        1.1 * scale,
-        7 * scale,
+    const trunkGeometry=new THREE.CylinderGeometry(
+        .8*scale,
+        1.1*scale,
+        7*scale,
         8
     );
 
-    const trunkMaterial = new THREE.MeshStandardMaterial({
-        color: 0x765039
+    const trunkMaterial=new THREE.MeshStandardMaterial({
+        color:0x765039
     });
 
-    const trunk = new THREE.Mesh(
+    const trunk=new THREE.Mesh(
         trunkGeometry,
         trunkMaterial
     );
 
-    trunk.position.y = 3.5 * scale;
-    trunk.castShadow = true;
+    trunk.position.y=3.5*scale;
+    trunk.castShadow=true;
 
     group.add(trunk);
 
-    const leavesGeometry = new THREE.SphereGeometry(
-        4.5 * scale,
+    const leavesGeometry=new THREE.SphereGeometry(
+        4.5*scale,
         10,
         8
     );
 
-    const leavesMaterial = new THREE.MeshStandardMaterial({
-        color: 0x3f7e3e,
-        roughness: 1
+    const leavesMaterial=new THREE.MeshStandardMaterial({
+        color:0x3f7e3e,
+        roughness:1
     });
 
-    const leaves = new THREE.Mesh(
+    const leaves=new THREE.Mesh(
         leavesGeometry,
         leavesMaterial
     );
 
-    leaves.position.y = 9 * scale;
-    leaves.castShadow = true;
+    leaves.position.y=9*scale;
+    leaves.castShadow=true;
 
     group.add(leaves);
 
-    group.position.set(x, 0, z);
+    group.position.set(x,0,z);
 
     scene.add(group);
 }
 
-for (let i = 0; i < 70; i++) {
+for(let i=0;i<70;i++){
 
-    const x = (Math.random() - 0.5) * 560;
-    const z = (Math.random() - 0.5) * 560;
+    const x=(Math.random()-.5)*560;
+    const z=(Math.random()-.5)*560;
 
-    if (
-        Math.abs(x) < 130 &&
-        Math.abs(z) < 130
-    ) {
+    if(
+        Math.abs(x)<130 &&
+        Math.abs(z)<130
+    ){
         continue;
     }
 
-    if (
-        x < -80 &&
-        z < -80
-    ) {
+    if(
+        x<-80 &&
+        z<-80
+    ){
         continue;
     }
 
     createTree(
         x,
         z,
-        0.7 + Math.random() * 0.7
+        .7+Math.random()*.7
     );
 }
 
-const roadMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3d4246,
-    roughness: 0.95
+const roadMaterial=new THREE.MeshStandardMaterial({
+    color:0x3d4246,
+    roughness:.95
 });
 
-const roadLineMaterial = new THREE.MeshBasicMaterial({
-    color: 0xe8d477
+const roadLineMaterial=new THREE.MeshBasicMaterial({
+    color:0xe8d477
 });
 
-const roads = [];
+const roads=[];
 
-function createRoad(x, z, width, length, rotation = 0) {
+function createRoad(
+    x,
+    z,
+    width,
+    length,
+    rotation=0
+){
 
-    const group = new THREE.Group();
+    const group=new THREE.Group();
 
-    const geometry = new THREE.BoxGeometry(
+    const geometry=new THREE.BoxGeometry(
         width,
-        0.35,
+        .35,
         length
     );
 
-    const road = new THREE.Mesh(
+    const road=new THREE.Mesh(
         geometry,
         roadMaterial
     );
 
-    road.position.y = 0.18;
-    road.receiveShadow = true;
+    road.position.y=.18;
+    road.receiveShadow=true;
 
     group.add(road);
 
-    const lineGeometry = new THREE.BoxGeometry(
-        0.45,
-        0.04,
-        length - 5
+    const lineGeometry=new THREE.BoxGeometry(
+        .45,
+        .04,
+        length-5
     );
 
-    const line = new THREE.Mesh(
+    const line=new THREE.Mesh(
         lineGeometry,
         roadLineMaterial
     );
 
-    line.position.y = 0.39;
+    line.position.y=.39;
 
     group.add(line);
 
-    group.position.set(x, 0, z);
-    group.rotation.y = rotation;
+    group.position.set(x,0,z);
+    group.rotation.y=rotation;
 
     scene.add(group);
 
-    roads.push({
-        object: group,
-        width: width,
-        length: length
-    });
+    roads.push(group);
 
     return group;
 }
 
-createRoad(0, 0, 18, 330, 0);
-createRoad(0, 0, 18, 330, Math.PI / 2);
+createRoad(0,0,18,330,0);
+createRoad(0,0,18,330,Math.PI/2);
 
-createRoad(0, -90, 14, 300, 0);
-createRoad(-90, 0, 14, 300, Math.PI / 2);
+createRoad(0,-90,14,300,0);
+createRoad(-90,0,14,300,Math.PI/2);
 
-const buildPanel = document.createElement("div");
+const topbar=document.createElement("div");
 
-buildPanel.style.position = "absolute";
-buildPanel.style.left = "20px";
-buildPanel.style.top = "20px";
-buildPanel.style.padding = "14px 18px";
-buildPanel.style.background = "rgba(20,25,28,0.92)";
-buildPanel.style.border = "1px solid rgba(255,255,255,0.18)";
-buildPanel.style.borderRadius = "12px";
-buildPanel.style.color = "white";
-buildPanel.style.fontFamily = "Arial,sans-serif";
-buildPanel.style.fontSize = "14px";
-buildPanel.style.zIndex = "20";
-buildPanel.style.boxShadow = "0 8px 30px rgba(0,0,0,0.3)";
+topbar.className="city-topbar";
 
-buildPanel.innerHTML = `
-<div style="font-size:20px;font-weight:bold;margin-bottom:8px">
-CITY BUILDER
+topbar.innerHTML=`
+<div class="city-title">
+🏙️ MY CITY
 </div>
-<div style="opacity:.8;margin-bottom:12px">
-Build your first roads
+
+<div class="city-stats">
+
+<div class="stat">
+<div class="stat-label">Population</div>
+<div class="stat-value" id="population">1,240</div>
 </div>
-<button id="roadButton" style="
-padding:9px 14px;
-border:0;
-border-radius:8px;
-background:#4f8cff;
-color:white;
-font-weight:bold;
-cursor:pointer;
-">
-BUILD ROAD
-</button>
-<div id="buildStatus" style="
-margin-top:10px;
-font-size:13px;
-opacity:.75;
-">
-Road building: OFF
+
+<div class="stat">
+<div class="stat-label">Money</div>
+<div class="stat-value" id="money">$25,000</div>
+</div>
+
+<div class="stat">
+<div class="stat-label">Happiness</div>
+<div class="stat-value" id="happiness">72%</div>
+</div>
+
+<div class="stat">
+<div class="stat-label">Traffic</div>
+<div class="stat-value" id="traffic">18%</div>
+</div>
+
+<div class="stat">
+<div class="stat-label">Day</div>
+<div class="stat-value" id="day">1</div>
+</div>
+
 </div>
 `;
 
-game.appendChild(buildPanel);
+game.appendChild(topbar);
 
-const roadButton = document.getElementById("roadButton");
-const buildStatus = document.getElementById("buildStatus");
+const buildButton=document.createElement("button");
 
-let buildMode = false;
-let buildingRoad = false;
-let roadStart = null;
+buildButton.className="build-main";
+buildButton.textContent="🏗️  BUILD";
 
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
+game.appendChild(buildButton);
 
-function getGroundPosition(event) {
+const menu=document.createElement("div");
 
-    const rect = renderer.domElement.getBoundingClientRect();
+menu.className="build-menu";
 
-    mouse.x =
-        ((event.clientX - rect.left) / rect.width) * 2 - 1;
+menu.innerHTML=`
 
-    mouse.y =
-        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+<div class="menu-header">
 
-    raycaster.setFromCamera(mouse, camera);
+<div class="menu-title">
+Build
+</div>
 
-    const hit = raycaster.intersectObject(ground);
+<button class="close-menu">
+×
+</button>
 
-    if (!hit.length) {
+</div>
+
+<div class="build-grid">
+
+<button class="build-card" data-build="road">
+<div class="build-icon">🛣️</div>
+<div class="build-name">Roads</div>
+<div class="build-price">$50</div>
+</button>
+
+<button class="build-card" data-build="residential">
+<div class="build-icon">🏠</div>
+<div class="build-name">Residential</div>
+<div class="build-price">$100</div>
+</button>
+
+<button class="build-card" data-build="commercial">
+<div class="build-icon">🏪</div>
+<div class="build-name">Shops</div>
+<div class="build-price">$150</div>
+</button>
+
+<button class="build-card" data-build="industrial">
+<div class="build-icon">🏭</div>
+<div class="build-name">Industrial</div>
+<div class="build-price">$300</div>
+</button>
+
+<button class="build-card" data-build="water">
+<div class="build-icon">💧</div>
+<div class="build-name">Water</div>
+<div class="build-price">$500</div>
+</button>
+
+<button class="build-card" data-build="power">
+<div class="build-icon">⚡</div>
+<div class="build-name">Electricity</div>
+<div class="build-price">$750</div>
+</button>
+
+<button class="build-card" data-build="parks">
+<div class="build-icon">🌳</div>
+<div class="build-name">Parks</div>
+<div class="build-price">$200</div>
+</button>
+
+<button class="build-card" data-build="services">
+<div class="build-icon">🏥</div>
+<div class="build-name">Services</div>
+<div class="build-price">$400</div>
+</button>
+
+</div>
+`;
+
+game.appendChild(menu);
+
+const status=document.createElement("div");
+
+status.className="build-status";
+
+game.appendChild(status);
+
+let buildMode=false;
+let selectedBuild=null;
+let buildingRoad=false;
+let roadStart=null;
+
+const raycaster=new THREE.Raycaster();
+const mouse=new THREE.Vector2();
+
+function getGroundPosition(event){
+
+    const rect=renderer.domElement.getBoundingClientRect();
+
+    mouse.x=
+        ((event.clientX-rect.left)/rect.width)*2-1;
+
+    mouse.y=
+        -((event.clientY-rect.top)/rect.height)*2+1;
+
+    raycaster.setFromCamera(mouse,camera);
+
+    const hit=raycaster.intersectObject(ground);
+
+    if(!hit.length){
         return null;
     }
 
     return hit[0].point;
 }
 
-function snap(value) {
-    return Math.round(value / 5) * 5;
+function snap(value){
+
+    return Math.round(value/5)*5;
 }
 
-function updateBuildStatus(text) {
-    buildStatus.textContent = text;
+function showStatus(message){
+
+    status.textContent=message;
+    status.classList.add("show");
+
+    clearTimeout(status.timer);
+
+    status.timer=setTimeout(()=>{
+        status.classList.remove("show");
+    },1800);
 }
 
-roadButton.addEventListener("click", () => {
+function closeBuildMenu(){
 
-    buildMode = !buildMode;
+    menu.classList.remove("open");
+    buildButton.classList.remove("active");
 
-    if (buildMode) {
+    buildMode=false;
+    selectedBuild=null;
+    buildingRoad=false;
+    roadStart=null;
 
-        roadButton.textContent = "EXIT ROAD BUILDING";
-        roadButton.style.background = "#e67e22";
+    controls.enabled=true;
 
-        updateBuildStatus(
-            "Road building: ON — click and drag"
-        );
+    document.querySelectorAll(".build-card").forEach(card=>{
+        card.classList.remove("selected");
+    });
+}
 
-        controls.enabled = false;
+buildButton.addEventListener("click",()=>{
 
-    } else {
+    const opening=!menu.classList.contains("open");
 
-        roadButton.textContent = "BUILD ROAD";
-        roadButton.style.background = "#4f8cff";
+    if(opening){
 
-        buildingRoad = false;
-        roadStart = null;
+        menu.classList.add("open");
+        buildButton.classList.add("active");
+        buildButton.textContent="✕  CLOSE BUILD";
 
-        updateBuildStatus(
-            "Road building: OFF"
-        );
+    }else{
 
-        controls.enabled = true;
+        closeBuildMenu();
+        buildButton.textContent="🏗️  BUILD";
     }
 });
 
-renderer.domElement.addEventListener("pointerdown", event => {
-
-    if (!buildMode) {
-        return;
+document.querySelector(".close-menu").addEventListener(
+    "click",
+    ()=>{
+        closeBuildMenu();
+        buildButton.textContent="🏗️  BUILD";
     }
+);
 
-    if (event.button !== 0) {
-        return;
-    }
+document.querySelectorAll(".build-card").forEach(card=>{
 
-    const position = getGroundPosition(event);
+    card.addEventListener("click",()=>{
 
-    if (!position) {
-        return;
-    }
-
-    roadStart = {
-        x: snap(position.x),
-        z: snap(position.z)
-    };
-
-    buildingRoad = true;
-
-    updateBuildStatus(
-        "Drag to place road..."
-    );
-});
-
-renderer.domElement.addEventListener("pointerup", event => {
-
-    if (!buildMode) {
-        return;
-    }
-
-    if (!buildingRoad) {
-        return;
-    }
-
-    if (event.button !== 0) {
-        return;
-    }
-
-    const position = getGroundPosition(event);
-
-    if (!position || !roadStart) {
-        buildingRoad = false;
-        roadStart = null;
-        return;
-    }
-
-    const end = {
-        x: snap(position.x),
-        z: snap(position.z)
-    };
-
-    const dx = end.x - roadStart.x;
-    const dz = end.z - roadStart.z;
-
-    if (Math.abs(dx) < 5 && Math.abs(dz) < 5) {
-
-        buildingRoad = false;
-        roadStart = null;
-
-        updateBuildStatus(
-            "Road too short"
+        document.querySelectorAll(".build-card").forEach(
+            other=>{
+                other.classList.remove("selected");
+            }
         );
 
-        return;
-    }
+        card.classList.add("selected");
 
-    let x;
-    let z;
-    let length;
-    let rotation;
+        selectedBuild=card.dataset.build;
 
-    if (Math.abs(dx) >= Math.abs(dz)) {
+        if(selectedBuild==="road"){
 
-        x = (roadStart.x + end.x) / 2;
-        z = roadStart.z;
+            buildMode=true;
+            controls.enabled=false;
 
-        length = Math.abs(dx) + 10;
-        rotation = Math.PI / 2;
+            showStatus(
+                "Road tool selected — click and drag on the map"
+            );
 
-    } else {
+        }else{
 
-        x = roadStart.x;
-        z = (roadStart.z + end.z) / 2;
+            buildMode=false;
+            controls.enabled=true;
 
-        length = Math.abs(dz) + 10;
-        rotation = 0;
-    }
-
-    createRoad(
-        x,
-        z,
-        12,
-        length,
-        rotation
-    );
-
-    buildingRoad = false;
-    roadStart = null;
-
-    updateBuildStatus(
-        "Road built!"
-    );
+            showStatus(
+                card.querySelector(".build-name").textContent+
+                " selected — we'll make this buildable next"
+            );
+        }
+    });
 });
 
-renderer.domElement.addEventListener("pointermove", event => {
+renderer.domElement.addEventListener(
+    "pointerdown",
+    event=>{
 
-    if (!buildMode || !buildingRoad || !roadStart) {
-        return;
+        if(!buildMode){
+            return;
+        }
+
+        if(selectedBuild!=="road"){
+            return;
+        }
+
+        if(event.button!==0){
+            return;
+        }
+
+        const position=getGroundPosition(event);
+
+        if(!position){
+            return;
+        }
+
+        roadStart={
+            x:snap(position.x),
+            z:snap(position.z)
+        };
+
+        buildingRoad=true;
+
+        showStatus("Drag to build your road...");
     }
+);
 
-    const position = getGroundPosition(event);
+renderer.domElement.addEventListener(
+    "pointerup",
+    event=>{
 
-    if (!position) {
-        return;
-    }
+        if(!buildingRoad){
+            return;
+        }
 
-    const x = snap(position.x);
-    const z = snap(position.z);
+        if(event.button!==0){
+            return;
+        }
 
-    const dx = x - roadStart.x;
-    const dz = z - roadStart.z;
+        const position=getGroundPosition(event);
 
-    if (Math.abs(dx) >= Math.abs(dz)) {
+        if(!position){
+            buildingRoad=false;
+            roadStart=null;
+            return;
+        }
 
-        updateBuildStatus(
-            `Road preview: ${Math.abs(dx)}m`
+        const end={
+            x:snap(position.x),
+            z:snap(position.z)
+        };
+
+        const dx=end.x-roadStart.x;
+        const dz=end.z-roadStart.z;
+
+        if(
+            Math.abs(dx)<5 &&
+            Math.abs(dz)<5
+        ){
+
+            buildingRoad=false;
+            roadStart=null;
+
+            showStatus("Road is too short");
+
+            return;
+        }
+
+        let x;
+        let z;
+        let length;
+        let rotation;
+
+        if(Math.abs(dx)>=Math.abs(dz)){
+
+            x=(roadStart.x+end.x)/2;
+            z=roadStart.z;
+            length=Math.abs(dx)+10;
+            rotation=Math.PI/2;
+
+        }else{
+
+            x=roadStart.x;
+            z=(roadStart.z+end.z)/2;
+            length=Math.abs(dz)+10;
+            rotation=0;
+        }
+
+        createRoad(
+            x,
+            z,
+            12,
+            length,
+            rotation
         );
 
-    } else {
+        buildingRoad=false;
+        roadStart=null;
 
-        updateBuildStatus(
-            `Road preview: ${Math.abs(dz)}m`
-        );
+        showStatus("Road built!");
     }
-});
+);
 
-const clock = new THREE.Clock();
+renderer.domElement.addEventListener(
+    "contextmenu",
+    event=>{
+        if(buildMode){
+            event.preventDefault();
+        }
+    }
+);
 
-function animate() {
+const clock=new THREE.Clock();
+
+function animate(){
 
     requestAnimationFrame(animate);
 
-    const elapsed = clock.getElapsedTime();
+    const elapsed=clock.getElapsedTime();
 
     controls.update();
 
     water.material.color.offsetHSL(
-        Math.sin(elapsed * 0.15) * 0.0004,
+        Math.sin(elapsed*.15)*.0004,
         0,
         0
     );
 
-    renderer.render(scene, camera);
+    renderer.render(
+        scene,
+        camera
+    );
 }
 
 animate();
 
-window.addEventListener("resize", () => {
+window.addEventListener(
+    "resize",
+    ()=>{
 
-    camera.aspect =
-        window.innerWidth / window.innerHeight;
+        camera.aspect=
+            window.innerWidth/window.innerHeight;
 
-    camera.updateProjectionMatrix();
+        camera.updateProjectionMatrix();
 
-    renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-    );
-});
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+    }
+);
