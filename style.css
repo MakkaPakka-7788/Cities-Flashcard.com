@@ -1,4 +1,3 @@
-
 *{
     box-sizing:border-box;
 }
@@ -13,6 +12,7 @@ html,body{
 body{
     font-family:Arial,sans-serif;
     background:#8fc8eb;
+    color:white;
 }
 
 #game{
@@ -25,4 +25,252 @@ canvas{
     display:block;
     width:100%;
     height:100%;
+}
+
+.city-topbar{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    height:76px;
+    display:flex;
+    align-items:center;
+    padding:0 22px;
+    gap:22px;
+    background:rgba(22,29,32,.94);
+    border-bottom:1px solid rgba(255,255,255,.12);
+    box-shadow:0 5px 25px rgba(0,0,0,.25);
+    z-index:20;
+}
+
+.city-title{
+    font-size:21px;
+    font-weight:800;
+    letter-spacing:.4px;
+    white-space:nowrap;
+}
+
+.city-stats{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex:1;
+}
+
+.stat{
+    min-width:105px;
+    height:48px;
+    padding:6px 12px;
+    border-radius:10px;
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.08);
+}
+
+.stat-label{
+    font-size:11px;
+    opacity:.65;
+    text-transform:uppercase;
+}
+
+.stat-value{
+    font-size:17px;
+    font-weight:700;
+    margin-top:3px;
+}
+
+.build-main{
+    position:absolute;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:25;
+    border:0;
+    border-radius:15px;
+    padding:15px 28px;
+    background:#263238;
+    color:white;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:0 8px 30px rgba(0,0,0,.35);
+    transition:.18s;
+}
+
+.build-main:hover{
+    transform:translateX(-50%) translateY(-2px);
+    background:#37474f;
+}
+
+.build-main.active{
+    background:#4b7bec;
+}
+
+.build-menu{
+    position:absolute;
+    left:18px;
+    right:18px;
+    bottom:88px;
+    max-width:1100px;
+    margin:auto;
+    padding:18px;
+    background:rgba(19,25,28,.97);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:18px;
+    box-shadow:0 18px 60px rgba(0,0,0,.42);
+    z-index:30;
+    opacity:0;
+    transform:translateY(20px);
+    pointer-events:none;
+    transition:.2s ease;
+}
+
+.build-menu.open{
+    opacity:1;
+    transform:translateY(0);
+    pointer-events:auto;
+}
+
+.menu-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+
+.menu-title{
+    font-size:20px;
+    font-weight:800;
+}
+
+.close-menu{
+    width:35px;
+    height:35px;
+    border:0;
+    border-radius:9px;
+    background:rgba(255,255,255,.08);
+    color:white;
+    font-size:20px;
+    cursor:pointer;
+}
+
+.close-menu:hover{
+    background:rgba(255,255,255,.15);
+}
+
+.build-grid{
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    gap:10px;
+}
+
+.build-card{
+    min-height:94px;
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:13px;
+    background:#252d31;
+    color:white;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    transition:.16s;
+}
+
+.build-card:hover{
+    transform:translateY(-3px);
+    background:#303a3f;
+    border-color:rgba(255,255,255,.22);
+}
+
+.build-card.selected{
+    background:#3e5fa8;
+    border-color:#86aaff;
+    box-shadow:0 0 0 2px rgba(134,170,255,.2);
+}
+
+.build-icon{
+    width:42px;
+    height:42px;
+    border-radius:11px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    background:rgba(255,255,255,.09);
+}
+
+.build-name{
+    font-size:12px;
+    font-weight:700;
+}
+
+.build-price{
+    font-size:10px;
+    opacity:.55;
+}
+
+.build-status{
+    position:absolute;
+    left:50%;
+    bottom:145px;
+    transform:translateX(-50%);
+    z-index:24;
+    background:rgba(15,20,22,.9);
+    padding:9px 15px;
+    border-radius:10px;
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition:.2s;
+}
+
+.build-status.show{
+    opacity:1;
+}
+
+@media(max-width:900px){
+
+    .city-topbar{
+        height:65px;
+        padding:0 12px;
+    }
+
+    .city-title{
+        font-size:17px;
+    }
+
+    .city-stats{
+        gap:5px;
+    }
+
+    .stat{
+        min-width:75px;
+    }
+
+    .stat:nth-child(n+4){
+        display:none;
+    }
+
+    .build-grid{
+        grid-template-columns:repeat(4,1fr);
+    }
+}
+
+@media(max-width:550px){
+
+    .build-grid{
+        grid-template-columns:repeat(3,1fr);
+    }
+
+    .build-menu{
+        bottom:78px;
+        max-height:65vh;
+        overflow-y:auto;
+    }
+
+    .build-main{
+        bottom:14px;
+    }
 }
